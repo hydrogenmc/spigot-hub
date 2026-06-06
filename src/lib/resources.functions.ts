@@ -70,5 +70,5 @@ export const trackDownload = createServerFn({ method: "POST" })
 export const getSettings = createServerFn({ method: "GET" }).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data } = await supabaseAdmin.from("site_settings").select("data").eq("id", "main").maybeSingle();
-  return (data?.data ?? {}) as Record<string, unknown>;
+  return (data?.data ?? {}) as import("@/lib/site-settings").SiteSettings;
 });

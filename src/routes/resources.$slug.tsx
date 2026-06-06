@@ -19,15 +19,18 @@ const resourceQuery = (slug: string) =>
   });
 
 export const Route = createFileRoute("/resources/$slug")({
-  head: ({ loaderData }) => ({
-    meta: [
-      { title: `${loaderData?.resource.title ?? "Resource"} — Cubyn Spigot` },
-      { name: "description", content: loaderData?.resource.description ?? "Minecraft resource" },
-      { property: "og:title", content: loaderData?.resource.title ?? "Resource" },
-      { property: "og:description", content: loaderData?.resource.description ?? "" },
-      ...(loaderData?.resource.thumbnail_url ? [{ property: "og:image", content: loaderData.resource.thumbnail_url }] : []),
-    ],
-  }),
+  head: ({ loaderData }) => {
+    const r = (loaderData as { resource?: { title?: string; description?: string; thumbnail_url?: string } } | undefined)?.resource;
+    return {
+      meta: [
+        { title: `${r?.title ?? "Resource"} — Cubyn Spigot` },
+        { name: "description", content: r?.description ?? "Minecraft resource" },
+        { property: "og:title", content: r?.title ?? "Resource" },
+        { property: "og:description", content: r?.description ?? "" },
+        ...(r?.thumbnail_url ? [{ property: "og:image", content: r.thumbnail_url }] : []),
+      ],
+    };
+  },
   loader: ({ params, context }) => context.queryClient.ensureQueryData(resourceQuery(params.slug)),
   component: ResourceDetail,
   notFoundComponent: () => (
