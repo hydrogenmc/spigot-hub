@@ -53,7 +53,9 @@ export const adminSaveResource = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const payload = { ...data };
     if (data.id) {
-      const { id, ...rest } = payload;
+      const id = data.id;
+      const { id: _i, ...rest } = payload;
+      void _i;
       const { error } = await supabaseAdmin.from("resources").update(rest).eq("id", id);
       if (error) throw new Error(error.message);
       return { id };
