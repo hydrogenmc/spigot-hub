@@ -52,19 +52,19 @@ function ResourcesPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
               <input
-                value={q} onChange={(e) => navigate({ search: (p) => ({ ...p, q: e.target.value }) })}
+                value={q} onChange={(e) => navigate({ search: (p: z.infer<typeof searchSchema>) => ({ ...p, q: e.target.value }) })}
                 placeholder="Search resources…"
                 className="w-full rounded-lg bg-input/60 py-2.5 pl-10 pr-3 text-sm text-foreground outline-none ring-1 ring-border/60 focus:ring-primary"
               />
             </div>
-            <select value={category} onChange={(e) => navigate({ search: (p) => ({ ...p, category: e.target.value }) })}
+            <select value={category} onChange={(e) => navigate({ search: (p: z.infer<typeof searchSchema>) => ({ ...p, category: e.target.value }) })}
               className="rounded-lg bg-input/60 px-3 py-2.5 text-sm text-foreground outline-none ring-1 ring-border/60 focus:ring-primary">
               <option value="">All categories</option>
               {base.categories.map((c) => <option key={c.id} value={c.slug}>{c.name}</option>)}
             </select>
-            <input value={mc} onChange={(e) => navigate({ search: (p) => ({ ...p, mc: e.target.value }) })}
+            <input value={mc} onChange={(e) => navigate({ search: (p: z.infer<typeof searchSchema>) => ({ ...p, mc: e.target.value }) })}
               placeholder="MC version" className="w-full rounded-lg bg-input/60 px-3 py-2.5 text-sm text-foreground outline-none ring-1 ring-border/60 focus:ring-primary md:w-32" />
-            <select value={sort} onChange={(e) => navigate({ search: (p) => ({ ...p, sort: e.target.value as "newest" | "popular" | "downloads" }) })}
+            <select value={sort} onChange={(e) => navigate({ search: (p: z.infer<typeof searchSchema>) => ({ ...p, sort: e.target.value as "newest" | "popular" | "downloads" }) })}
               className="rounded-lg bg-input/60 px-3 py-2.5 text-sm text-foreground outline-none ring-1 ring-border/60 focus:ring-primary">
               <option value="newest">Newest</option>
               <option value="popular">Popular</option>
