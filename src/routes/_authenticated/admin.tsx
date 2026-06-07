@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { LogOut, Plus, Trash2, Save, Upload, Settings as Cog, FolderTree, Package } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
+import { RichTextEditor } from "@/components/RichTextEditor";
 import { listCategories } from "@/lib/resources.functions";
 import {
   adminCheck, adminListResources, adminSaveResource, adminDeleteResource,
