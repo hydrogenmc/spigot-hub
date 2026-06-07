@@ -106,10 +106,20 @@ function ResourceDetail() {
                 <h1 className="mt-1 font-display text-3xl font-bold sm:text-4xl">{r.title}</h1>
                 <p className="mt-2 max-w-2xl text-muted-foreground">{r.description}</p>
               </div>
-              <button onClick={handleDownload} className="btn-glow hover:btn-glow-hover inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm">
-                <Download size={16} /> Download
+              <button
+                onClick={handleDownload}
+                disabled={dlState === "loading"}
+                aria-busy={dlState === "loading"}
+                className={`btn-glow hover:btn-glow-hover relative inline-flex items-center gap-2 overflow-hidden rounded-xl px-6 py-3 text-sm transition-transform active:scale-95 disabled:opacity-90 ${dlState === "loading" ? "animate-pulse" : ""} ${dlState === "done" ? "ring-2 ring-primary/60" : ""}`}
+              >
+                {dlState === "loading" ? (
+                  <><Loader2 size={16} className="animate-spin" /> Downloading…</>
+                ) : dlState === "done" ? (
+                  <><Check size={16} className="animate-scale-in" /> Downloaded</>
+                ) : (
+                  <><Download size={16} className="transition-transform group-hover:translate-y-0.5" /> Download</>
+                )}
               </button>
-            </div>
 
             <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
