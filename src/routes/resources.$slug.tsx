@@ -50,10 +50,13 @@ function ResourceDetail() {
   const { data } = useSuspenseQuery(resourceQuery(slug));
   const r = data.resource;
   const track = useServerFn(trackDownload);
+  const [dlState, setDlState] = useState<"idle" | "loading" | "done">("idle");
 
   const handleDownload = async () => {
     const url = r.file_url || r.external_url;
     if (!url) { toast.error("No download available yet"); return; }
+    if (dlState === "loading") return;
+    setDlState("loading");
     try { await track({ data: { id: r.id } }); } catch { /* non-fatal */ }
     const filename = `${r.slug}-${r.version ?? ""}`.replace(/[^a-z0-9._-]+/gi, "_");
     try {
@@ -72,6 +75,9 @@ function ResourceDetail() {
     } catch {
       window.open(url, "_blank", "noopener");
       toast.success("Download opened in new tab");
+    } finally {
+      setDlState("done");
+      setTimeout(() => setDlState("idle"), 1800);
     }
   };
 
