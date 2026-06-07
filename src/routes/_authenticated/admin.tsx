@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { LogOut, Plus, Trash2, Save, Upload, Settings as Cog, FolderTree, Package } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
+import { RichTextEditor } from "@/components/RichTextEditor";
 import { listCategories } from "@/lib/resources.functions";
 import {
   adminCheck, adminListResources, adminSaveResource, adminDeleteResource,
@@ -196,7 +197,7 @@ function ResourceEditor({ data, setData, categories, onSave, onCancel, busy }: {
         <Field label="Title"><input value={String(data.title ?? "")} onChange={(e) => update("title", e.target.value)} className={inp} /></Field>
         <Field label="Slug (url)"><input value={String(data.slug ?? "")} onChange={(e) => update("slug", e.target.value)} className={inp} placeholder="my-plugin" /></Field>
         <Field label="Short description" className="sm:col-span-2"><input value={String(data.description ?? "")} onChange={(e) => update("description", e.target.value)} className={inp} /></Field>
-        <Field label="Long description" className="sm:col-span-2"><textarea value={String(data.long_description ?? "")} onChange={(e) => update("long_description", e.target.value)} rows={5} className={inp} /></Field>
+        <Field label="Long description" className="sm:col-span-2"><RichTextEditor value={String(data.long_description ?? "")} onChange={(v) => update("long_description", v)} rows={6} placeholder="Describe the resource. Select text and click Bold." /></Field>
         <Field label="Author"><input value={String(data.author ?? "")} onChange={(e) => update("author", e.target.value)} className={inp} /></Field>
         <Field label="Category">
           <select value={String(data.category_id ?? "")} onChange={(e) => update("category_id", e.target.value || null)} className={inp}>
@@ -229,7 +230,7 @@ function ResourceEditor({ data, setData, categories, onSave, onCancel, busy }: {
           <input value={Array.isArray(data.tags) ? (data.tags as string[]).join(", ") : ""}
             onChange={(e) => update("tags", e.target.value.split(",").map(s => s.trim()).filter(Boolean))} className={inp} />
         </Field>
-        <Field label="Changelog" className="sm:col-span-2"><textarea value={String(data.changelog ?? "")} onChange={(e) => update("changelog", e.target.value)} rows={4} className={inp} /></Field>
+        <Field label="Changelog" className="sm:col-span-2"><RichTextEditor value={String(data.changelog ?? "")} onChange={(v) => update("changelog", v)} rows={4} placeholder="What changed in this version?" /></Field>
         <div className="flex items-center gap-6 sm:col-span-2">
           <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={!!data.featured} onChange={(e) => update("featured", e.target.checked)} /> Featured</label>
           <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={!!data.published} onChange={(e) => update("published", e.target.checked)} /> Published</label>

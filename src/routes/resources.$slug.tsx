@@ -1,10 +1,12 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Download, ArrowLeft, Calendar, User, Tag, Box } from "lucide-react";
+import { useState } from "react";
+import { Download, ArrowLeft, Calendar, User, Tag, Box, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
+import { sanitizeHtml } from "@/components/RichTextEditor";
 import { getResource, getSettings, trackDownload } from "@/lib/resources.functions";
 import type { SiteSettings } from "@/lib/site-settings";
 
@@ -48,10 +50,13 @@ function ResourceDetail() {
   const { data } = useSuspenseQuery(resourceQuery(slug));
   const r = data.resource;
   const track = useServerFn(trackDownload);
+  const [dlState, setDlState] = useState<"idle" | "loading" | "done">("idle");
 
   const handleDownload = async () => {
     const url = r.file_url || r.external_url;
     if (!url) { toast.error("No download available yet"); return; }
+    if (dlState === "loading") return;
+    setDlState("loading");
     try { await track({ data: { id: r.id } }); } catch { /* non-fatal */ }
     const filename = `${r.slug}-${r.version ?? ""}`.replace(/[^a-z0-9._-]+/gi, "_");
     try {
@@ -70,6 +75,9 @@ function ResourceDetail() {
     } catch {
       window.open(url, "_blank", "noopener");
       toast.success("Download opened in new tab");
+    } finally {
+      setDlState("done");
+      setTimeout(() => setDlState("idle"), 1800);
     }
   };
 
@@ -98,10 +106,23 @@ function ResourceDetail() {
                 <h1 className="mt-1 font-display text-3xl font-bold sm:text-4xl">{r.title}</h1>
                 <p className="mt-2 max-w-2xl text-muted-foreground">{r.description}</p>
               </div>
-              <button onClick={handleDownload} className="btn-glow hover:btn-glow-hover inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm">
-                <Download size={16} /> Download
+              <button
+                onClick={handleDownload}
+                disabled={dlState === "loading"}
+                aria-busy={dlState === "loading"}
+                className={`btn-glow hover:btn-glow-hover relative inline-flex items-center gap-2 overflow-hidden rounded-xl px-6 py-3 text-sm transition-transform active:scale-95 disabled:opacity-90 ${dlState === "loading" ? "animate-pulse" : ""} ${dlState === "done" ? "ring-2 ring-primary/60" : ""}`}
+              >
+                {dlState === "loading" ? (
+                  <><Loader2 size={16} className="animate-spin" /> Downloading…</>
+                ) : dlState === "done" ? (
+                  <><Check size={16} className="animate-scale-in" /> Downloaded</>
+                ) : (
+                  <><Download size={16} className="transition-transform group-hover:translate-y-0.5" /> Download</>
+                )}
               </button>
             </div>
+
+
 
             <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
@@ -141,18 +162,24 @@ function ResourceDetail() {
         {r.long_description && (
           <section className="mt-10">
             <h2 className="font-display text-2xl font-bold">Description</h2>
-            <div className="glass mt-4 whitespace-pre-wrap rounded-2xl p-6 text-sm leading-relaxed text-muted-foreground">{r.long_description}</div>
+            <div
+              className="prose-rt glass mt-4 whitespace-pre-wrap rounded-2xl p-6 text-sm leading-relaxed text-muted-foreground [&_strong]:font-semibold [&_strong]:text-foreground [&_b]:font-semibold [&_b]:text-foreground [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5"
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(r.long_description) }}
+            />
           </section>
         )}
 
         {r.changelog && (
           <section className="mt-10">
             <h2 className="font-display text-2xl font-bold">Changelog</h2>
-            <div className="glass mt-4 whitespace-pre-wrap rounded-2xl p-6 text-sm leading-relaxed text-muted-foreground">{r.changelog}</div>
+            <div
+              className="prose-rt glass mt-4 whitespace-pre-wrap rounded-2xl p-6 text-sm leading-relaxed text-muted-foreground [&_strong]:font-semibold [&_strong]:text-foreground [&_b]:font-semibold [&_b]:text-foreground [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5"
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(r.changelog) }}
+            />
           </section>
         )}
 
-        <p className="mt-8 flex items-center gap-1.5 text-xs text-muted-foreground"><Calendar size={12} /> Published {new Date(r.created_at).toLocaleDateString()}</p>
+        <p className="mt-8 flex items-center gap-1.5 text-xs text-muted-foreground" suppressHydrationWarning><Calendar size={12} /> Published {new Date(r.created_at).toLocaleDateString()}</p>
       </article>
       <SiteFooter settings={data.settings} />
     </div>
