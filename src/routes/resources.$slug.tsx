@@ -1,10 +1,12 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Download, ArrowLeft, Calendar, User, Tag, Box } from "lucide-react";
+import { useState } from "react";
+import { Download, ArrowLeft, Calendar, User, Tag, Box, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
+import { sanitizeHtml } from "@/components/RichTextEditor";
 import { getResource, getSettings, trackDownload } from "@/lib/resources.functions";
 import type { SiteSettings } from "@/lib/site-settings";
 
