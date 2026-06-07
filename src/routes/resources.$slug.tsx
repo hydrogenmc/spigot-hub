@@ -53,8 +53,24 @@ function ResourceDetail() {
     const url = r.file_url || r.external_url;
     if (!url) { toast.error("No download available yet"); return; }
     try { await track({ data: { id: r.id } }); } catch { /* non-fatal */ }
-    window.open(url, "_blank", "noopener");
-    toast.success("Download started");
+    const filename = `${r.slug}-${r.version ?? ""}`.replace(/[^a-z0-9._-]+/gi, "_");
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("fetch failed");
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+      toast.success("Download started");
+    } catch {
+      window.open(url, "_blank", "noopener");
+      toast.success("Download opened in new tab");
+    }
   };
 
   const screenshots = (r.resource_screenshots ?? []).slice().sort((a, b) => a.sort_order - b.sort_order);
