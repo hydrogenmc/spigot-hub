@@ -24,7 +24,7 @@ const baseQuery = queryOptions({
   },
 });
 
-export const Route = createFileRoute("/resources")({
+export const Route = createFileRoute("/resources/")({
   validateSearch: zodValidator(searchSchema),
   head: () => ({ meta: [{ title: "Resources — Cubyn Spigot" }, { name: "description", content: "Browse all Minecraft resources." }] }),
   loader: ({ context }) => context.queryClient.ensureQueryData(baseQuery),
