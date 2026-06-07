@@ -1,6 +1,28 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+// Extracts the object path inside the "resources" bucket from a stored URL.
+// Accepts both `/object/public/resources/<path>` and `/object/sign/resources/<path>` formats,
+// or a bare path. Returns null if the URL is not in our bucket (e.g. external_url).
+function extractResourcesPath(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const m = url.match(/\/storage\/v1\/object\/(?:public|sign)\/resources\/([^?]+)/);
+  if (m) return decodeURIComponent(m[1]);
+  return null;
+}
+
+async function signIfBucketUrl(
+  storage: { from: (b: string) => { createSignedUrl: (p: string, exp: number) => Promise<{ data: { signedUrl: string } | null }> } },
+  url: string | null | undefined,
+  expiresInSec = 60 * 60,
+): Promise<string | null> {
+  if (!url) return null;
+  const path = extractResourcesPath(url);
+  if (!path) return url; // external URL — leave it alone
+  const { data } = await storage.from("resources").createSignedUrl(path, expiresInSec);
+  return data?.signedUrl ?? null;
+}
+
 export const listResources = createServerFn({ method: "GET" })
   .inputValidator((d: { category?: string; mcVersion?: string; sort?: "newest" | "popular" | "downloads"; q?: string; featured?: boolean; limit?: number } = {}) =>
     z.object({
@@ -28,7 +50,11 @@ export const listResources = createServerFn({ method: "GET" })
     q = q.limit(data.limit);
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
-    return rows ?? [];
+    const out = await Promise.all((rows ?? []).map(async (r) => ({
+      ...r,
+      thumbnail_url: await signIfBucketUrl(supabaseAdmin.storage, r.thumbnail_url),
+    })));
+    return out;
   });
 
 export const getResource = createServerFn({ method: "GET" })
@@ -39,7 +65,18 @@ export const getResource = createServerFn({ method: "GET" })
       .select("*, categories(slug, name, icon), resource_screenshots(url, sort_order)")
       .eq("slug", data.slug).eq("published", true).maybeSingle();
     if (error) throw new Error(error.message);
-    return r;
+    if (!r) return null;
+    const [thumbnail_url, file_url] = await Promise.all([
+      signIfBucketUrl(supabaseAdmin.storage, r.thumbnail_url),
+      signIfBucketUrl(supabaseAdmin.storage, r.file_url, 60 * 10),
+    ]);
+    const screenshots = await Promise.all(
+      (r.resource_screenshots ?? []).map(async (s: { url: string; sort_order: number }) => ({
+        ...s,
+        url: (await signIfBucketUrl(supabaseAdmin.storage, s.url)) ?? s.url,
+      })),
+    );
+    return { ...r, thumbnail_url, file_url, resource_screenshots: screenshots };
   });
 
 export const listCategories = createServerFn({ method: "GET" }).handler(async () => {
