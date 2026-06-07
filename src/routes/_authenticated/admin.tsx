@@ -230,7 +230,7 @@ function ResourceEditor({ data, setData, categories, onSave, onCancel, busy }: {
           <input value={Array.isArray(data.tags) ? (data.tags as string[]).join(", ") : ""}
             onChange={(e) => update("tags", e.target.value.split(",").map(s => s.trim()).filter(Boolean))} className={inp} />
         </Field>
-        <Field label="Changelog" className="sm:col-span-2"><textarea value={String(data.changelog ?? "")} onChange={(e) => update("changelog", e.target.value)} rows={4} className={inp} /></Field>
+        <Field label="Changelog" className="sm:col-span-2"><RichTextEditor value={String(data.changelog ?? "")} onChange={(v) => update("changelog", v)} rows={4} placeholder="What changed in this version?" /></Field>
         <div className="flex items-center gap-6 sm:col-span-2">
           <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={!!data.featured} onChange={(e) => update("featured", e.target.checked)} /> Featured</label>
           <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={!!data.published} onChange={(e) => update("published", e.target.checked)} /> Published</label>
