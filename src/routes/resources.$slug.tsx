@@ -120,6 +120,9 @@ function ResourceDetail() {
                   <><Download size={16} className="transition-transform group-hover:translate-y-0.5" /> Download</>
                 )}
               </button>
+            </div>
+
+
 
             <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
