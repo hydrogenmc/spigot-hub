@@ -44,6 +44,124 @@ export type Database = {
         }
         Relationships: []
       }
+      download_logs: {
+        Row: {
+          created_at: string
+          id: string
+          resource_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          resource_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          resource_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "download_logs_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      membership_plans: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string
+          duration_days: number | null
+          id: string
+          name: string
+          price_php: number
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string
+          duration_days?: number | null
+          id?: string
+          name: string
+          price_php: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string
+          duration_days?: number | null
+          id?: string
+          name?: string
+          price_php?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      payments: {
+        Row: {
+          amount_php: number
+          created_at: string
+          id: string
+          method: string
+          paid_at: string | null
+          plan_id: string | null
+          provider: string
+          provider_ref: string | null
+          raw: Json
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_php: number
+          created_at?: string
+          id?: string
+          method: string
+          paid_at?: string | null
+          plan_id?: string | null
+          provider?: string
+          provider_ref?: string | null
+          raw?: Json
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_php?: number
+          created_at?: string
+          id?: string
+          method?: string
+          paid_at?: string | null
+          plan_id?: string | null
+          provider?: string
+          provider_ref?: string | null
+          raw?: Json
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "membership_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -93,6 +211,7 @@ export type Database = {
       }
       resources: {
         Row: {
+          access_tier: string
           author: string
           category_id: string | null
           changelog: string | null
@@ -115,6 +234,7 @@ export type Database = {
           version: string
         }
         Insert: {
+          access_tier?: string
           author?: string
           category_id?: string | null
           changelog?: string | null
@@ -137,6 +257,7 @@ export type Database = {
           version?: string
         }
         Update: {
+          access_tier?: string
           author?: string
           category_id?: string | null
           changelog?: string | null
@@ -207,11 +328,60 @@ export type Database = {
         }
         Relationships: []
       }
+      vip_memberships: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          payment_id: string | null
+          plan_id: string | null
+          source: string
+          starts_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          payment_id?: string | null
+          plan_id?: string | null
+          source?: string
+          starts_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          payment_id?: string | null
+          plan_id?: string | null
+          source?: string
+          starts_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vip_memberships_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vip_memberships_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "membership_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      downloads_today: { Args: { _uid: string }; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -220,9 +390,10 @@ export type Database = {
         Returns: boolean
       }
       increment_download: { Args: { _resource_id: string }; Returns: number }
+      is_active_vip: { Args: { _uid: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "user"
+      app_role: "admin" | "user" | "member" | "vip"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -350,7 +521,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user"],
+      app_role: ["admin", "user", "member", "vip"],
     },
   },
 } as const
