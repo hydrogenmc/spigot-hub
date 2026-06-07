@@ -162,18 +162,24 @@ function ResourceDetail() {
         {r.long_description && (
           <section className="mt-10">
             <h2 className="font-display text-2xl font-bold">Description</h2>
-            <div className="glass mt-4 whitespace-pre-wrap rounded-2xl p-6 text-sm leading-relaxed text-muted-foreground">{r.long_description}</div>
+            <div
+              className="prose-rt glass mt-4 whitespace-pre-wrap rounded-2xl p-6 text-sm leading-relaxed text-muted-foreground [&_strong]:font-semibold [&_strong]:text-foreground [&_b]:font-semibold [&_b]:text-foreground [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5"
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(r.long_description) }}
+            />
           </section>
         )}
 
         {r.changelog && (
           <section className="mt-10">
             <h2 className="font-display text-2xl font-bold">Changelog</h2>
-            <div className="glass mt-4 whitespace-pre-wrap rounded-2xl p-6 text-sm leading-relaxed text-muted-foreground">{r.changelog}</div>
+            <div
+              className="prose-rt glass mt-4 whitespace-pre-wrap rounded-2xl p-6 text-sm leading-relaxed text-muted-foreground [&_strong]:font-semibold [&_strong]:text-foreground [&_b]:font-semibold [&_b]:text-foreground [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5"
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(r.changelog) }}
+            />
           </section>
         )}
 
-        <p className="mt-8 flex items-center gap-1.5 text-xs text-muted-foreground"><Calendar size={12} /> Published {new Date(r.created_at).toLocaleDateString()}</p>
+        <p className="mt-8 flex items-center gap-1.5 text-xs text-muted-foreground" suppressHydrationWarning><Calendar size={12} /> Published {new Date(r.created_at).toLocaleDateString()}</p>
       </article>
       <SiteFooter settings={data.settings} />
     </div>
