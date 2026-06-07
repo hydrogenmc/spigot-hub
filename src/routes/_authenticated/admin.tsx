@@ -197,7 +197,7 @@ function ResourceEditor({ data, setData, categories, onSave, onCancel, busy }: {
         <Field label="Title"><input value={String(data.title ?? "")} onChange={(e) => update("title", e.target.value)} className={inp} /></Field>
         <Field label="Slug (url)"><input value={String(data.slug ?? "")} onChange={(e) => update("slug", e.target.value)} className={inp} placeholder="my-plugin" /></Field>
         <Field label="Short description" className="sm:col-span-2"><input value={String(data.description ?? "")} onChange={(e) => update("description", e.target.value)} className={inp} /></Field>
-        <Field label="Long description" className="sm:col-span-2"><textarea value={String(data.long_description ?? "")} onChange={(e) => update("long_description", e.target.value)} rows={5} className={inp} /></Field>
+        <Field label="Long description" className="sm:col-span-2"><RichTextEditor value={String(data.long_description ?? "")} onChange={(v) => update("long_description", v)} rows={6} placeholder="Describe the resource. Select text and click Bold." /></Field>
         <Field label="Author"><input value={String(data.author ?? "")} onChange={(e) => update("author", e.target.value)} className={inp} /></Field>
         <Field label="Category">
           <select value={String(data.category_id ?? "")} onChange={(e) => update("category_id", e.target.value || null)} className={inp}>
