@@ -222,7 +222,7 @@ export type Database = {
       increment_download: { Args: { _resource_id: string }; Returns: number }
     }
     Enums: {
-      app_role: "admin" | "user"
+      app_role: "admin" | "user" | "member" | "vip"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -350,7 +350,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user"],
+      app_role: ["admin", "user", "member", "vip"],
     },
   },
 } as const
