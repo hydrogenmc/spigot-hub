@@ -1,78 +1,132 @@
 
-# Membership & Payments Build Plan
+# Revised Membership & Payments Plan
 
-Big scope — here's what I'll ship end-to-end. Confirm and I'll execute.
+Switching from PayMongo to **semi-automated GCash/Maya receipt verification with OCR**, plus a full **Credits** economy. Confirm and I'll execute end-to-end.
 
-## 1. Auth (Lovable Cloud / Supabase)
-- Enable **email verification** in Cloud auth settings (users must confirm email before login succeeds).
-- Update `/auth` page: Sign in, Sign up, Forgot password, Remember me checkbox (controls `persistSession`).
-- New `/reset-password` public route (handles `type=recovery` hash, calls `updateUser({password})`).
-- New `/account` route (authenticated): change email, change password, view membership status & expiry.
-- Password rules: min 8 chars + HIBP leaked-password check via `configure_auth`.
-- Existing `_authenticated` gate already protects routes. Rate-limiting, CSRF, hashing, session security are handled by Supabase Auth + the publishable key flow.
+## 1. Auth (production-ready)
+
+- Email + password, **email verification required** (`auto_confirm_email: false`).
+- HIBP leaked-password check on signup/change (`password_hibp_enabled: true`).
+- `/auth` redesign: Sign in, Sign up, Forgot password, **Remember me** (toggles `persistSession`).
+- New public `/reset-password` route (handles `type=recovery`, calls `updateUser({password})`).
+- New `/account` route (authenticated): change email/password, view membership + credits + downloads.
+- Sign-out hygiene: cancel queries, clear cache, `signOut`, replace-navigate to `/auth`.
+- Brute-force/rate-limit/CSRF/hashing/token security = handled by Supabase Auth (Lovable Cloud) — that's the platform guarantee, no custom layer.
+- All Zod-validated inputs (client + server).
 
 ## 2. Roles
-- Reuse existing `app_role` enum + `user_roles` table. Add value `vip` to the enum.
-- Auto-assign `member` to every new signup via the existing `handle_new_user` trigger (extend it to insert `('member')` into `user_roles`).
-- Keep `admin` as is. `has_role()` already exists.
 
-## 3. New tables (migration)
-- `membership_plans` (name, duration_days nullable=lifetime, price_php, active, sort_order).
-- `vip_memberships` (user_id, plan_id, starts_at, expires_at nullable, source, payment_id).
-- `payments` (user_id, plan_id, amount_php, method gcash|maya, provider=paymongo, provider_ref, status pending|paid|failed|expired, raw jsonb, created_at, paid_at).
-- `download_logs` (user_id, resource_id, created_at) — for daily limit counting.
-- `download_limits` settings stored in existing `site_settings` (`member_daily_limit`, `vip_daily_limit` nullable=unlimited).
-- Add `resources.access_tier` text default `'free'` ∈ {free, vip}.
-- All tables: GRANTs + RLS (users see own rows; admins manage all).
-- Trigger: when a `payments` row flips to `paid`, insert/extend `vip_memberships` and insert `('vip')` into `user_roles` (delete on expiry via a scheduled check).
+- `app_role` already extended: `admin`, `vip`, `member`. New signup auto-gets `member` (existing trigger).
+- `member` = default, limited daily downloads, earns Credits, no VIP resources.
+- `vip` = unlimited downloads, VIP badge, access to VIP resources. Auto-granted on approved payment, auto-revoked at expiry.
+- `admin` = full control.
 
-## 4. Helper SQL functions (SECURITY DEFINER)
-- `is_active_vip(uid uuid) returns bool` — checks unexpired `vip_memberships`.
-- `downloads_today(uid uuid) returns int`.
-- `can_download(uid uuid, resource_id uuid) returns jsonb` — returns `{allowed, reason}` enforcing free/vip + daily limit.
+## 3. Resource access tiers
 
-## 5. Download flow rewrite
-- `getDownloadUrl` serverFn (already exists) becomes auth-required (`requireSupabaseAuth`).
-  - Calls `can_download`; rejects with clear error.
-  - Logs to `download_logs`.
-  - Returns signed URL as today.
-- Resource detail page: if guest → "Sign in to download" CTA. If member viewing VIP → "Requires VIP" + Upgrade button. If over daily limit → "Daily limit reached".
+Drop the current `access_tier ∈ {free, vip}` and replace with **`access_tier ∈ {free, credit, vip}`** + `credit_cost int` on `resources`.
 
-## 6. PayMongo checkout (GCash/Maya)
-- Add secret `PAYMONGO_SECRET_KEY` via `secrets--add_secret`.
-- ServerFn `createCheckout({plan_id, method})`:
-  - Creates a PayMongo **Checkout Session** with line item = plan, payment_method_types = [`gcash`] or [`paymaya`], success_url/cancel_url to `/billing/return`.
-  - Inserts `payments` row (status=pending, provider_ref=session id).
-  - Returns hosted checkout URL → client redirects.
-- Public server route `/api/public/paymongo/webhook`:
-  - Verifies `Paymongo-Signature` HMAC with webhook secret.
-  - On `checkout_session.payment.paid` → mark payment `paid`, trigger activates VIP.
-- `/billing/return` page polls payment status until paid/failed.
+- **Free** → any logged-in user (subject to daily limit).
+- **Credit** → deducts `credit_cost` on download (insufficient → blocked).
+- **VIP** → requires active VIP membership.
 
-## 7. UI additions
-- `/membership` route: lists active plans, GCash/Maya buttons → PayMongo redirect. VIP badge on header avatar when active.
-- Resource cards: small "VIP" pill on vip-tier resources.
-- `_authenticated/admin.tsx`: new tabs
-  - **Users**: list, search, grant/revoke admin/vip manually, view membership expiry.
-  - **Plans**: CRUD `membership_plans`.
-  - **Payments**: list `payments` with filters, manual mark-paid as a safety net.
-  - **Settings**: GCash/Maya display info (shown on /membership for transparency), payment instructions, member daily limit, vip daily limit. Saves to `site_settings`.
-  - **Memberships**: list active VIPs with expiry.
-- Header: when logged in show avatar dropdown (Account, Membership, Sign out). When guest, show Sign in.
+Guest behaviour: browse / search / view / screenshots / descriptions only. Download button shows "Sign in to download" CTA.
 
-## 8. Cleanup
-- Remove "No login required" copy from index/about/anywhere it appears.
+## 4. Credits economy
 
-## Technical notes
-- Server functions: `auth.functions.ts`, `billing.functions.ts`, `membership.functions.ts`, `admin-users.functions.ts`, `admin-plans.functions.ts` (all client-safe paths under `src/lib/`).
-- PayMongo webhook lives at `src/routes/api/public/paymongo.webhook.ts`.
-- HIBP password check via `supabase--configure_auth({password_hibp_enabled: true})`.
-- Rate limiting: relying on Supabase Auth's built-in. No custom rate limiter (per platform constraint).
-- Email verification: enable in `configure_auth` (auto_confirm_email=false). Default Supabase auth emails will be sent — branded templates are out of scope unless you want them.
+New table `credits_ledger(user_id, delta, reason, ref_id, created_at)` — single source of truth (append-only). `profiles.credits_balance` cached column maintained by trigger.
 
-## Out of scope unless you say otherwise
-- Branded auth email templates (custom domain emails).
-- Apple/Microsoft/SAML SSO (you didn't ask — Google can be added in 1 step if you want).
-- Refunds UI.
+Earning rules (admin-editable in `site_settings`):
+- Signup bonus: **+20** (one-time, via trigger on profile creation).
+- Daily login: **+N** (claimable once per UTC day from `/account`).
+- Activity rewards: hook stubs for future (e.g. first download bonus).
 
-Reply **go** to proceed, or tell me what to adjust (e.g. "skip Google", "add Google", "lifetime only", "no daily limit").
+Spending: download a credit resource → server fn deducts atomically (within a SECURITY DEFINER fn that re-checks balance).
+
+Leaderboard: public read of `profiles` top-by-`credits_balance` (display name + balance only — no email).
+
+## 5. Daily download limits
+
+`site_settings` → `member_daily_limit` (default 10), `vip_daily_limit` (null = unlimited).
+
+`can_download(uid, resource_id)` SECURITY DEFINER fn enforces tier + limit + credit balance, returns `{allowed, reason, cost}`.
+
+`getDownloadUrl` server fn:
+- Requires auth (`requireSupabaseAuth`).
+- Calls `can_download`.
+- If credit tier → wraps deduction + download log in a single SQL fn to avoid race.
+- Logs `download_logs`.
+- Returns signed URL.
+
+## 6. Payments — semi-automated GCash/Maya + OCR
+
+**No PayMongo.** Manual sends to project's GCash/Maya, automated receipt scan.
+
+### Tables
+- `membership_plans` (already exists — keep).
+- `payment_settings` lives in `site_settings.payment` jsonb: `{gcash_number, gcash_name, maya_number, maya_name, instructions, ocr_confidence_threshold (default 0.8)}`.
+- `payment_receipts` — new:
+  - `user_id`, `plan_id`, `method ∈ {gcash, maya}`, `image_url` (storage), `status ∈ {pending, auto_approved, approved, rejected, flagged}`,
+  - OCR fields: `ocr_reference`, `ocr_amount_php`, `ocr_paid_at`, `ocr_method`, `ocr_confidence`, `ocr_raw` jsonb,
+  - validation: `duplicate_reference bool`, `duplicate_image_hash bool`, `amount_match bool`, `flags text[]`,
+  - admin: `reviewed_by`, `reviewed_at`, `admin_notes`.
+- Unique index on `ocr_reference` (when not null) — DB-level duplicate guard.
+- Storage: private bucket `receipts/` — users upload own, admins read all (RLS).
+
+### Flow
+1. User picks plan on `/membership`, sees GCash/Maya number + name + instructions (from `site_settings`).
+2. User pays externally, uploads receipt screenshot.
+3. Server fn `submitReceipt({plan_id, method, file})`:
+   - Uploads to private bucket.
+   - Computes SHA-256 of image bytes; rejects if matches an existing row → `duplicate_image_hash`.
+   - Calls **Lovable AI Gateway** (`google/gemini-2.5-flash`) with the image + structured-output schema → extracts `{reference, amount, datetime, method}` + self-reported `confidence`.
+   - Runs validators:
+     - Reference uniqueness (DB lookup).
+     - `amount === plan.price_php`.
+     - Method matches user selection.
+     - Date within last 7 days.
+     - Detected method in receipt matches.
+   - Computes final confidence = `min(model_confidence, 1.0) * pass_ratio`.
+4. Decision:
+   - If `confidence >= threshold` **and** all validators pass **and** no duplicates → status `auto_approved`, insert `payments` row (status=paid), trigger grants/extends VIP automatically (existing `handle_payment_paid` trigger), notify user.
+   - Else → status `flagged` / `rejected`, surface reason to user, queue for admin.
+
+### Admin review dashboard
+New tab "Payments" in `/admin`:
+- List receipts (filter by status), thumbnail, OCR fields, confidence, flags.
+- Approve → activates VIP. Reject → keep record, add note. Optional re-run OCR.
+
+### Auto-expiry
+`pg_cron` daily job removes expired `vip` roles for users whose `vip_memberships.expires_at < now()`.
+
+## 7. UI
+
+- Header: avatar dropdown (Account, Membership, Credits, Sign out) when signed in; "Sign in" otherwise. VIP badge when active.
+- `/membership` — plan cards, GCash/Maya details, upload-receipt form, status of last submission.
+- `/credits` — balance, daily-claim button, ledger, leaderboard.
+- `/account` — profile + security + membership/credits summary.
+- Resource cards/detail — Free / Credit (cost) / VIP pill. Disabled download CTA with clear reason for guests / under-credit / no-VIP / limit-reached.
+- Remove all "no login required" copy.
+
+## 8. Admin panel additions
+
+Tabs: Users (search, grant/revoke admin/vip, adjust credits, view downloads), Plans (CRUD), Payments (review queue), Memberships (active VIPs + expiry), Credits (leaderboard, manual adjust, reward rules), Settings (payment info, OCR threshold, daily limits, signup/daily-login credit amounts). One-click save per section.
+
+## 9. Cleanup
+- Drop pending PayMongo plan items (no secrets added, no PayMongo code shipped yet).
+- Remove "No login required" copy site-wide.
+
+## Technical Notes
+- New server fns under `src/lib/`: `auth.functions.ts`, `credits.functions.ts`, `receipts.functions.ts`, `admin-credits.functions.ts`, `admin-receipts.functions.ts`. Existing `resources.functions.ts` updated for auth-required downloads.
+- OCR via Lovable AI Gateway → no extra secrets, no Tesseract install needed, edge-runtime safe. Structured output via tool-calling schema.
+- Image hashing in the server fn (Web Crypto `crypto.subtle.digest('SHA-256', bytes)`).
+- All new public tables get explicit `GRANT`s + RLS.
+- Validation: Zod everywhere; max image size 5 MB; only image/png|jpg|webp.
+
+## Out of scope (unless you say otherwise)
+- Branded auth email templates.
+- Google/Apple/SAML SSO (1-step add later).
+- Refunds UI / partial refunds.
+- SMS/email-OTP for high-value actions.
+- Receipt re-OCR via a different model.
+
+Reply **go** to build it all in one pass, or tell me what to tweak (e.g. "signup bonus 50", "limit 5/day", "skip credits", "skip leaderboard").
