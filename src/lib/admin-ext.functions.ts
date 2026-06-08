@@ -150,7 +150,8 @@ export const adminListReceipts = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     // sign image urls
     const out = await Promise.all((rows ?? []).map(async (r) => {
-      const { data: signed } = await supabaseAdmin.storage.from("receipts").createSignedUrl(r.image_path, 60 * 30);
+      const path = r.image_path ?? "";
+      const { data: signed } = path ? await supabaseAdmin.storage.from("receipts").createSignedUrl(path, 60 * 30) : { data: null };
       return { ...r, image_url: signed?.signedUrl ?? null };
     }));
     return out;

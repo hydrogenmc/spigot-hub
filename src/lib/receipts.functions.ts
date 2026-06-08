@@ -76,7 +76,9 @@ function dataUrlToBytes(url: string): { bytes: Uint8Array; ext: string; mime: st
 }
 
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const buf = await crypto.subtle.digest("SHA-256", bytes);
+  const ab = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(ab).set(bytes);
+  const buf = await crypto.subtle.digest("SHA-256", ab);
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
@@ -181,7 +183,7 @@ export const submitReceipt = createServerFn({ method: "POST" })
         ocr_paid_at: ocr.paid_at_iso,
         ocr_method: ocr.detected_method,
         ocr_confidence: finalConf,
-        ocr_raw: ocr as unknown as Record<string, unknown>,
+        ocr_raw: ocr as unknown as never,
         flags,
       })
       .select("id")

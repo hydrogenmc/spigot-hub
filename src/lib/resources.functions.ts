@@ -64,7 +64,6 @@ export const getResource = createServerFn({ method: "GET" })
       .eq("slug", data.slug).eq("published", true).maybeSingle();
     if (error) throw new Error(error.message);
     if (!r) return null;
-    // Public listing: do NOT expose file_url. Only thumbnail/screenshots.
     const thumbnail_url = await signIfBucketUrl(supabaseAdmin.storage, r.thumbnail_url);
     const screenshots = await Promise.all(
       (r.resource_screenshots ?? []).map(async (s: { url: string; sort_order: number }) => ({
@@ -72,9 +71,10 @@ export const getResource = createServerFn({ method: "GET" })
         url: (await signIfBucketUrl(supabaseAdmin.storage, s.url)) ?? s.url,
       })),
     );
-    const { file_url: _hidden, ...safe } = r as { file_url?: string | null } & Record<string, unknown>;
-    void _hidden;
-    return { ...safe, thumbnail_url, resource_screenshots: screenshots, has_file: !!r.file_url || !!r.external_url };
+    // strip raw file_url from public response; gated by getDownloadUrl
+    const safe = { ...(r as Record<string, unknown>) };
+    delete (safe as { file_url?: unknown }).file_url;
+    return { ...(safe as Record<string, unknown>), thumbnail_url, resource_screenshots: screenshots, has_file: !!(r as { file_url?: string }).file_url || !!(r as { external_url?: string }).external_url } as Record<string, unknown> & { id: string; slug: string; title: string; description: string; long_description?: string; changelog?: string; version: string; mc_version: string; author: string; tags: string[]; thumbnail_url: string | null; access_tier: string; credit_cost: number; download_count: number; created_at: string; categories?: { name?: string; slug?: string; icon?: string } | null; resource_screenshots: Array<{ url: string; sort_order: number }>; has_file: boolean };
   });
 
 export const listCategories = createServerFn({ method: "GET" }).handler(async () => {
