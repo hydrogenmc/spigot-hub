@@ -44,6 +44,33 @@ export type Database = {
         }
         Relationships: []
       }
+      credits_ledger: {
+        Row: {
+          created_at: string
+          delta: number
+          id: string
+          reason: string
+          ref_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          delta: number
+          id?: string
+          reason: string
+          ref_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          delta?: number
+          id?: string
+          reason?: string
+          ref_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       download_logs: {
         Row: {
           created_at: string
@@ -109,6 +136,90 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_receipts: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          flags: string[]
+          id: string
+          image_path: string
+          image_sha256: string
+          method: string
+          ocr_amount_php: number | null
+          ocr_confidence: number | null
+          ocr_method: string | null
+          ocr_paid_at: string | null
+          ocr_raw: Json
+          ocr_reference: string | null
+          payment_id: string | null
+          plan_id: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          flags?: string[]
+          id?: string
+          image_path: string
+          image_sha256: string
+          method: string
+          ocr_amount_php?: number | null
+          ocr_confidence?: number | null
+          ocr_method?: string | null
+          ocr_paid_at?: string | null
+          ocr_raw?: Json
+          ocr_reference?: string | null
+          payment_id?: string | null
+          plan_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          flags?: string[]
+          id?: string
+          image_path?: string
+          image_sha256?: string
+          method?: string
+          ocr_amount_php?: number | null
+          ocr_confidence?: number | null
+          ocr_method?: string | null
+          ocr_paid_at?: string | null
+          ocr_raw?: Json
+          ocr_reference?: string | null
+          payment_id?: string | null
+          plan_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_receipts_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_receipts_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "membership_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount_php: number
@@ -165,18 +276,24 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          credits_balance: number
           display_name: string | null
           id: string
+          last_daily_claim_at: string | null
         }
         Insert: {
           created_at?: string
+          credits_balance?: number
           display_name?: string | null
           id: string
+          last_daily_claim_at?: string | null
         }
         Update: {
           created_at?: string
+          credits_balance?: number
           display_name?: string | null
           id?: string
+          last_daily_claim_at?: string | null
         }
         Relationships: []
       }
@@ -216,6 +333,7 @@ export type Database = {
           category_id: string | null
           changelog: string | null
           created_at: string
+          credit_cost: number
           description: string
           download_count: number
           external_url: string | null
@@ -239,6 +357,7 @@ export type Database = {
           category_id?: string | null
           changelog?: string | null
           created_at?: string
+          credit_cost?: number
           description?: string
           download_count?: number
           external_url?: string | null
@@ -262,6 +381,7 @@ export type Database = {
           category_id?: string | null
           changelog?: string | null
           created_at?: string
+          credit_cost?: number
           description?: string
           download_count?: number
           external_url?: string | null
@@ -381,7 +501,29 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_adjust_credits: {
+        Args: { _delta: number; _reason: string; _uid: string }
+        Returns: undefined
+      }
+      admin_approve_receipt: {
+        Args: { _note: string; _receipt_id: string }
+        Returns: Json
+      }
+      admin_reject_receipt: {
+        Args: { _note: string; _receipt_id: string }
+        Returns: undefined
+      }
+      can_download: {
+        Args: { _resource_id: string; _uid: string }
+        Returns: Json
+      }
+      claim_daily_credits: { Args: { _uid: string }; Returns: Json }
+      consume_download: {
+        Args: { _resource_id: string; _uid: string }
+        Returns: Json
+      }
       downloads_today: { Args: { _uid: string }; Returns: number }
+      expire_vip_roles: { Args: never; Returns: undefined }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
