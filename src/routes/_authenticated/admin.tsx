@@ -414,3 +414,245 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     </div>
   );
 }
+
+// =============================================================
+// Users tab
+// =============================================================
+function UsersTab() {
+  const qc = useQueryClient();
+  const list = useServerFn(adminListUsers);
+  const grant = useServerFn(adminGrantRole);
+  const adj = useServerFn(adminAdjustCredits);
+  const [q, setQ] = useState("");
+  const users = useQuery({ queryKey: ["admin-users", q], queryFn: () => list({ data: { q } }) });
+
+  const grantMut = useMutation({
+    mutationFn: (v: { user_id: string; role: "admin" | "vip" | "member"; grant: boolean }) => grant({ data: v }),
+    onSuccess: () => { toast.success("Role updated"); qc.invalidateQueries({ queryKey: ["admin-users"] }); },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+  const adjMut = useMutation({
+    mutationFn: (v: { user_id: string; delta: number; reason: string }) => adj({ data: v }),
+    onSuccess: () => { toast.success("Credits adjusted"); qc.invalidateQueries({ queryKey: ["admin-users"] }); },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+
+  return (
+    <div>
+      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search email or name…"
+        className="w-full max-w-sm rounded-lg bg-input/60 px-3 py-2 text-sm outline-none ring-1 ring-border/60 focus:ring-primary" />
+      <div className="glass mt-4 overflow-x-auto rounded-2xl">
+        <table className="w-full text-sm">
+          <thead className="bg-secondary/40 text-xs uppercase text-muted-foreground">
+            <tr><th className="px-4 py-3 text-left">User</th><th className="px-4 py-3 text-left">Roles</th><th className="px-4 py-3 text-left">Credits</th><th className="px-4 py-3 text-left">VIP exp</th><th className="px-4 py-3"></th></tr>
+          </thead>
+          <tbody>
+            {(users.data ?? []).map((u) => (
+              <tr key={u.id} className="border-t border-border/40">
+                <td className="px-4 py-3">
+                  <div className="font-medium text-foreground">{u.display_name ?? "—"}</div>
+                  <div className="text-xs text-muted-foreground">{u.email}</div>
+                </td>
+                <td className="px-4 py-3 text-xs">
+                  {(["admin","vip","member"] as const).map((r) => {
+                    const has = u.roles.includes(r);
+                    return (
+                      <button key={r} onClick={() => grantMut.mutate({ user_id: u.id, role: r, grant: !has })}
+                        className={`mr-1 rounded px-1.5 py-0.5 ${has ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground hover:bg-secondary/80"}`}>
+                        {r}
+                      </button>
+                    );
+                  })}
+                </td>
+                <td className="px-4 py-3 text-foreground">{u.credits}</td>
+                <td className="px-4 py-3 text-xs text-muted-foreground">{u.vip_expires_at ? new Date(u.vip_expires_at).toLocaleDateString() : (u.roles.includes("vip") ? "—" : "")}</td>
+                <td className="px-4 py-3 text-right">
+                  <button onClick={() => {
+                    const v = prompt(`Adjust credits for ${u.email} (+/- amount):`, "10");
+                    if (!v) return;
+                    const delta = Number(v); if (!Number.isFinite(delta)) return toast.error("Invalid number");
+                    const reason = prompt("Reason:", "admin_adjust") ?? "admin_adjust";
+                    adjMut.mutate({ user_id: u.id, delta, reason });
+                  }} className="text-xs text-primary hover:underline">Adjust credits</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================
+// Plans tab
+// =============================================================
+function PlansTab() {
+  const qc = useQueryClient();
+  const list = useServerFn(adminListPlans);
+  const save = useServerFn(adminSavePlan);
+  const del = useServerFn(adminDeletePlan);
+  const plans = useQuery({ queryKey: ["admin-plans"], queryFn: () => list() });
+  const [editing, setEditing] = useState<Record<string, unknown> | null>(null);
+
+  const saveMut = useMutation({
+    mutationFn: (d: Record<string, unknown>) => save({ data: d as never }),
+    onSuccess: () => { toast.success("Saved"); setEditing(null); qc.invalidateQueries({ queryKey: ["admin-plans"] }); },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+  const delMut = useMutation({
+    mutationFn: (id: string) => del({ data: { id } }),
+    onSuccess: () => { toast.success("Deleted"); qc.invalidateQueries({ queryKey: ["admin-plans"] }); },
+  });
+
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">{plans.data?.length ?? 0} plans</p>
+        <button onClick={() => setEditing({ name: "", description: "", price_php: 99, duration_days: 30, sort_order: 0, active: true })}
+          className="btn-glow hover:btn-glow-hover inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm"><Plus size={14} /> New plan</button>
+      </div>
+
+      {editing && (
+        <div className="glass-strong mt-6 rounded-2xl p-6">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Name"><input value={String(editing.name ?? "")} onChange={(e) => setEditing({ ...editing, name: e.target.value })} className={inp} /></Field>
+            <Field label="Price (PHP)"><input type="number" min="0" value={Number(editing.price_php ?? 0)} onChange={(e) => setEditing({ ...editing, price_php: Number(e.target.value) })} className={inp} /></Field>
+            <Field label="Duration days (blank = lifetime)">
+              <input type="number" min="1" value={editing.duration_days == null ? "" : Number(editing.duration_days)}
+                onChange={(e) => setEditing({ ...editing, duration_days: e.target.value === "" ? null : Number(e.target.value) })} className={inp} />
+            </Field>
+            <Field label="Sort order"><input type="number" value={Number(editing.sort_order ?? 0)} onChange={(e) => setEditing({ ...editing, sort_order: Number(e.target.value) })} className={inp} /></Field>
+            <Field label="Description" className="sm:col-span-2"><textarea rows={2} value={String(editing.description ?? "")} onChange={(e) => setEditing({ ...editing, description: e.target.value })} className={inp} /></Field>
+            <label className="inline-flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" checked={!!editing.active} onChange={(e) => setEditing({ ...editing, active: e.target.checked })} /> Active</label>
+          </div>
+          <div className="mt-4 flex gap-2">
+            <button onClick={() => saveMut.mutate(editing)} disabled={saveMut.isPending} className="btn-glow hover:btn-glow-hover inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm"><Save size={14} /> Save</button>
+            <button onClick={() => setEditing(null)} className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-secondary">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      <div className="glass mt-6 divide-y divide-border/40 rounded-2xl">
+        {(plans.data ?? []).map((p) => (
+          <div key={p.id} className="flex items-center justify-between p-4">
+            <div>
+              <div className="font-medium text-foreground">{p.name} <span className="ml-2 text-xs text-muted-foreground">₱{p.price_php} · {p.duration_days ?? "lifetime"}{p.duration_days ? " days" : ""}{!p.active ? " · inactive" : ""}</span></div>
+              <div className="text-xs text-muted-foreground">{p.description}</div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setEditing(p as unknown as Record<string, unknown>)} className="text-xs text-primary hover:underline">Edit</button>
+              <button onClick={() => { if (confirm(`Delete "${p.name}"?`)) delMut.mutate(p.id); }} className="text-xs text-destructive hover:underline"><Trash2 size={12} /></button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// =============================================================
+// Payments / Receipts review tab
+// =============================================================
+function PaymentsTab() {
+  const qc = useQueryClient();
+  const list = useServerFn(adminListReceipts);
+  const approve = useServerFn(adminApproveReceipt);
+  const reject = useServerFn(adminRejectReceipt);
+  const [status, setStatus] = useState("");
+  const rec = useQuery({ queryKey: ["admin-receipts", status], queryFn: () => list({ data: { status: status || undefined } }) });
+
+  const approveMut = useMutation({
+    mutationFn: (id: string) => approve({ data: { id } }),
+    onSuccess: () => { toast.success("Approved · VIP granted"); qc.invalidateQueries({ queryKey: ["admin-receipts"] }); },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+  const rejectMut = useMutation({
+    mutationFn: (v: { id: string; note: string }) => reject({ data: v }),
+    onSuccess: () => { toast.success("Rejected"); qc.invalidateQueries({ queryKey: ["admin-receipts"] }); },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+
+  return (
+    <div>
+      <div className="flex flex-wrap gap-2">
+        {["", "flagged", "auto_approved", "approved", "rejected"].map((s) => (
+          <button key={s || "all"} onClick={() => setStatus(s)} className={`rounded-lg px-3 py-1.5 text-xs ${status === s ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground"}`}>
+            {s || "All"}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        {(rec.data ?? []).map((r) => {
+          const plan = (r as { membership_plans?: { name?: string; price_php?: number } }).membership_plans;
+          return (
+            <div key={r.id} className="glass-strong overflow-hidden rounded-2xl">
+              {r.image_url && <a href={r.image_url} target="_blank" rel="noreferrer"><img src={r.image_url} alt="receipt" className="max-h-64 w-full object-cover" /></a>}
+              <div className="p-4">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-foreground">{plan?.name ?? "Plan"} · ₱{plan?.price_php ?? "—"}</span>
+                  <span className="rounded bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase">{r.status}</span>
+                </div>
+                <div className="mt-2 text-xs text-muted-foreground">
+                  <div>Method: {r.method.toUpperCase()} · OCR ₱{r.ocr_amount_php ?? "—"} · Conf {((r.ocr_confidence ?? 0) * 100).toFixed(0)}%</div>
+                  <div>Ref: {r.ocr_reference ?? "—"}</div>
+                  {r.flags && r.flags.length > 0 && <div className="mt-1 text-yellow-400">Flags: {r.flags.join(", ")}</div>}
+                  {r.admin_notes && <div className="mt-1">Note: {r.admin_notes}</div>}
+                  <div className="mt-1">{new Date(r.created_at).toLocaleString()}</div>
+                </div>
+                {(r.status === "flagged" || r.status === "pending") && (
+                  <div className="mt-3 flex gap-2">
+                    <button onClick={() => approveMut.mutate(r.id)} className="inline-flex items-center gap-1 rounded-lg bg-primary/20 px-3 py-1.5 text-xs text-primary hover:bg-primary/30">
+                      <CheckCircle2 size={12} /> Approve
+                    </button>
+                    <button onClick={() => {
+                      const note = prompt("Rejection note (sent to user):", "Could not verify payment");
+                      if (note) rejectMut.mutate({ id: r.id, note });
+                    }} className="inline-flex items-center gap-1 rounded-lg bg-destructive/20 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/30">
+                      <XCircle size={12} /> Reject
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        {(rec.data?.length ?? 0) === 0 && <p className="col-span-full text-center text-muted-foreground">No receipts.</p>}
+      </div>
+    </div>
+  );
+}
+
+// =============================================================
+// Memberships tab
+// =============================================================
+function MembershipsTab() {
+  const list = useServerFn(adminListMemberships);
+  const q = useQuery({ queryKey: ["admin-memberships"], queryFn: () => list() });
+  return (
+    <div className="glass overflow-x-auto rounded-2xl">
+      <table className="w-full text-sm">
+        <thead className="bg-secondary/40 text-xs uppercase text-muted-foreground">
+          <tr><th className="px-4 py-3 text-left">User</th><th className="px-4 py-3 text-left">Plan</th><th className="px-4 py-3 text-left">Starts</th><th className="px-4 py-3 text-left">Expires</th><th className="px-4 py-3 text-left">Source</th></tr>
+        </thead>
+        <tbody>
+          {(q.data ?? []).map((m) => {
+            const plan = (m as { membership_plans?: { name?: string } }).membership_plans;
+            const expired = m.expires_at && new Date(m.expires_at).getTime() < Date.now();
+            return (
+              <tr key={m.id} className="border-t border-border/40">
+                <td className="px-4 py-3 text-xs text-muted-foreground">{m.user_id.slice(0, 8)}…</td>
+                <td className="px-4 py-3 text-foreground">{plan?.name ?? "—"}</td>
+                <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(m.starts_at).toLocaleDateString()}</td>
+                <td className={`px-4 py-3 text-xs ${expired ? "text-destructive" : "text-muted-foreground"}`}>{m.expires_at ? new Date(m.expires_at).toLocaleDateString() : "Lifetime"}</td>
+                <td className="px-4 py-3 text-xs text-muted-foreground">{m.source}</td>
+              </tr>
+            );
+          })}
+          {(q.data?.length ?? 0) === 0 && <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">No memberships yet.</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
