@@ -72,9 +72,12 @@ export const getResource = createServerFn({ method: "GET" })
       })),
     );
     // strip raw file_url from public response; gated by getDownloadUrl
-    const safe = { ...(r as Record<string, unknown>) };
-    delete (safe as { file_url?: unknown }).file_url;
-    return { ...(safe as Record<string, unknown>), thumbnail_url, resource_screenshots: screenshots, has_file: !!(r as { file_url?: string }).file_url || !!(r as { external_url?: string }).external_url } as Record<string, unknown> & { id: string; slug: string; title: string; description: string; long_description?: string; changelog?: string; version: string; mc_version: string; author: string; tags: string[]; thumbnail_url: string | null; access_tier: string; credit_cost: number; download_count: number; created_at: string; categories?: { name?: string; slug?: string; icon?: string } | null; resource_screenshots: Array<{ url: string; sort_order: number }>; has_file: boolean };
+    const safe: Record<string, unknown> = { ...(r as Record<string, unknown>) };
+    delete safe.file_url;
+    safe.thumbnail_url = thumbnail_url;
+    safe.resource_screenshots = screenshots;
+    safe.has_file = !!(r as { file_url?: string }).file_url || !!(r as { external_url?: string }).external_url;
+    return JSON.parse(JSON.stringify(safe)) as { id: string; slug: string; title: string; description: string; long_description?: string; changelog?: string; version: string; mc_version: string; author: string; tags: string[]; thumbnail_url: string | null; access_tier: string; credit_cost: number; download_count: number; created_at: string; categories?: { name?: string; slug?: string; icon?: string } | null; resource_screenshots: Array<{ url: string; sort_order: number }>; has_file: boolean };
   });
 
 export const listCategories = createServerFn({ method: "GET" }).handler(async () => {

@@ -163,7 +163,7 @@ export const adminApproveReceipt = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: res, error } = await supabaseAdmin.rpc("admin_approve_receipt", { _receipt_id: data.id, _note: data.note ?? null });
+    const { data: res, error } = await supabaseAdmin.rpc("admin_approve_receipt", { _receipt_id: data.id, _note: data.note ?? "" });
     if (error) throw new Error(error.message);
     return res as { ok: boolean; payment_id?: string };
   });
