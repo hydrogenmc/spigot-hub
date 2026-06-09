@@ -336,11 +336,15 @@ function SettingsTab() {
   const about = (data.about as Record<string, string> | undefined) ?? {};
   const contact = (data.contact as Record<string, string> | undefined) ?? {};
   const footer = (data.footer as Record<string, string> | undefined) ?? {};
+  const payment = (data.payment as Record<string, string | number> | undefined) ?? {};
+  const limits = (data.limits as Record<string, number | null> | undefined) ?? {};
+  const credits = (data.credits as Record<string, number> | undefined) ?? {};
 
-  const set = (section: string, field: string, value: string) => {
-    const next = { ...data, [section]: { ...((data[section] as Record<string, string>) ?? {}), [field]: value } };
+  const set = (section: string, field: string, value: string | number | null) => {
+    const next = { ...data, [section]: { ...((data[section] as Record<string, unknown>) ?? {}), [field]: value } };
     setLocal(next);
   };
+
 
   const saveMut = useMutation({
     mutationFn: () => save({ data: { data: data as Record<string, unknown> } }),
@@ -374,6 +378,22 @@ function SettingsTab() {
 
       <Section title="Footer">
         <Field label="Tagline" className="sm:col-span-2"><input value={footer.tagline ?? ""} onChange={(e) => set("footer", "tagline", e.target.value)} className={inp} /></Field>
+      </Section>
+
+      <Section title="Payments (GCash / Maya)">
+        <Field label="GCash number"><input value={String(payment.gcash_number ?? "")} onChange={(e) => set("payment", "gcash_number", e.target.value)} className={inp} placeholder="09xx-xxx-xxxx" /></Field>
+        <Field label="GCash account name"><input value={String(payment.gcash_name ?? "")} onChange={(e) => set("payment", "gcash_name", e.target.value)} className={inp} /></Field>
+        <Field label="Maya number"><input value={String(payment.maya_number ?? "")} onChange={(e) => set("payment", "maya_number", e.target.value)} className={inp} placeholder="09xx-xxx-xxxx" /></Field>
+        <Field label="Maya account name"><input value={String(payment.maya_name ?? "")} onChange={(e) => set("payment", "maya_name", e.target.value)} className={inp} /></Field>
+        <Field label="Auto-approve OCR threshold (0–1)"><input type="number" step="0.05" min="0" max="1" value={Number(payment.ocr_confidence_threshold ?? 0.8)} onChange={(e) => set("payment", "ocr_confidence_threshold", Number(e.target.value))} className={inp} /></Field>
+        <Field label="Instructions to buyer" className="sm:col-span-2"><textarea rows={3} value={String(payment.instructions ?? "")} onChange={(e) => set("payment", "instructions", e.target.value)} className={inp} placeholder="e.g. Include your username in the message…" /></Field>
+      </Section>
+
+      <Section title="Download limits & Credits">
+        <Field label="Member daily downloads"><input type="number" min="0" value={Number(limits.member_daily ?? 10)} onChange={(e) => set("limits", "member_daily", Number(e.target.value))} className={inp} /></Field>
+        <Field label="VIP daily downloads (blank = unlimited)"><input type="number" min="0" value={limits.vip_daily ?? ""} onChange={(e) => set("limits", "vip_daily", e.target.value === "" ? null : Number(e.target.value))} className={inp} /></Field>
+        <Field label="Signup bonus credits"><input type="number" min="0" value={Number(credits.signup_bonus ?? 20)} onChange={(e) => set("credits", "signup_bonus", Number(e.target.value))} className={inp} /></Field>
+        <Field label="Daily login credits"><input type="number" min="0" value={Number(credits.daily_login ?? 5)} onChange={(e) => set("credits", "daily_login", Number(e.target.value))} className={inp} /></Field>
       </Section>
 
       <div className="sticky bottom-4 flex justify-end">
