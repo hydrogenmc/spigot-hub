@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { LogOut, Plus, Trash2, Save, Upload, Settings as Cog, FolderTree, Package } from "lucide-react";
+import { LogOut, Plus, Trash2, Save, Upload, Settings as Cog, FolderTree, Package, Users as UsersIcon, Crown, Receipt, Coins, CheckCircle2, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
 import { RichTextEditor } from "@/components/RichTextEditor";
@@ -12,6 +12,12 @@ import {
   adminCheck, adminListResources, adminSaveResource, adminDeleteResource,
   adminSaveCategory, adminDeleteCategory, adminSaveSettings, adminUploadUrl, adminPromoteSelf,
 } from "@/lib/admin.functions";
+import {
+  adminListUsers, adminGrantRole, adminAdjustCredits,
+  adminListPlans, adminSavePlan, adminDeletePlan,
+  adminListReceipts, adminApproveReceipt, adminRejectReceipt,
+  adminListMemberships,
+} from "@/lib/admin-ext.functions";
 import { getSettings } from "@/lib/resources.functions";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -19,7 +25,8 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage,
 });
 
-type Tab = "resources" | "categories" | "settings";
+type Tab = "resources" | "categories" | "users" | "plans" | "payments" | "memberships" | "settings";
+
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -72,10 +79,14 @@ function AdminPage() {
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <h1 className="font-display text-3xl font-bold">Admin <span className="text-gradient">Dashboard</span></h1>
 
-        <div className="glass mt-6 inline-flex gap-1 rounded-xl p-1">
+        <div className="glass mt-6 inline-flex flex-wrap gap-1 rounded-xl p-1">
           {[
             { id: "resources" as const, icon: Package, label: "Resources" },
             { id: "categories" as const, icon: FolderTree, label: "Categories" },
+            { id: "users" as const, icon: UsersIcon, label: "Users" },
+            { id: "plans" as const, icon: Crown, label: "Plans" },
+            { id: "payments" as const, icon: Receipt, label: "Payments" },
+            { id: "memberships" as const, icon: Crown, label: "Memberships" },
             { id: "settings" as const, icon: Cog, label: "Settings" },
           ].map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)}
@@ -88,6 +99,10 @@ function AdminPage() {
         <div className="mt-6">
           {tab === "resources" && <ResourcesTab />}
           {tab === "categories" && <CategoriesTab />}
+          {tab === "users" && <UsersTab />}
+          {tab === "plans" && <PlansTab />}
+          {tab === "payments" && <PaymentsTab />}
+          {tab === "memberships" && <MembershipsTab />}
           {tab === "settings" && <SettingsTab />}
         </div>
       </div>
