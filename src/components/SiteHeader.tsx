@@ -72,7 +72,7 @@ export function SiteHeader() {
         <div className="hidden items-center gap-2 lg:flex">
           {!sessionUser ? (
             <>
-              <Link to="/auth" className="rounded-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground">Sign in</Link>
+              <Link to="/auth" search={{ tab: "signin" }} className="rounded-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground">Sign in</Link>
               <Link to="/auth" search={{ tab: "signup" }} className="btn-glow hover:btn-glow-hover inline-flex items-center rounded-lg px-4 py-2 text-sm">Sign up</Link>
             </>
           ) : (
@@ -132,7 +132,7 @@ export function SiteHeader() {
             <div className="my-2 h-px bg-border/60" />
             {!sessionUser ? (
               <>
-                <Link to="/auth" onClick={() => setOpen(false)} className="rounded-md px-3 py-3 text-sm text-muted-foreground hover:text-foreground">Sign in</Link>
+                <Link to="/auth" search={{ tab: "signin" }} onClick={() => setOpen(false)} className="rounded-md px-3 py-3 text-sm text-muted-foreground hover:text-foreground">Sign in</Link>
                 <Link to="/auth" search={{ tab: "signup" }} onClick={() => setOpen(false)} className="btn-glow mt-2 rounded-lg px-4 py-2.5 text-center text-sm">Sign up</Link>
               </>
             ) : (
