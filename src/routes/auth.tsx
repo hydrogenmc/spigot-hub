@@ -155,7 +155,7 @@ function AuthPage() {
                 <button type="submit" disabled={busy} className="btn-glow hover:btn-glow-hover w-full rounded-lg px-4 py-2.5 text-sm disabled:opacity-60">
                   {busy ? "Creating account…" : "Create account"}
                 </button>
-                <p className="text-center text-xs text-muted-foreground">By signing up you agree to our <Link to="/terms" className="text-primary hover:underline">Terms</Link> and <Link to="/privacy" className="text-primary hover:underline">Privacy</Link>.</p>
+                <p className="mt-4 px-2 text-center text-xs leading-relaxed text-muted-foreground">By signing up you agree to our <Link to="/terms" className="text-primary hover:underline">Terms</Link> and <Link to="/privacy" className="text-primary hover:underline">Privacy</Link>.</p>
               </form>
             )}
 
