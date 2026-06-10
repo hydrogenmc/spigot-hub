@@ -152,10 +152,10 @@ function AuthPage() {
                 </Field>
                 <EmailField value={email} onChange={setEmail} />
                 <PasswordField value={password} onChange={setPassword} hint="Min 8 chars. Checked against known breaches." />
+                <p className="px-2 pt-1 text-center text-xs leading-relaxed text-muted-foreground">By signing up you agree to our <Link to="/terms" className="text-primary hover:underline">Terms</Link> and <Link to="/privacy" className="text-primary hover:underline">Privacy</Link>.</p>
                 <button type="submit" disabled={busy} className="btn-glow hover:btn-glow-hover w-full rounded-lg px-4 py-2.5 text-sm disabled:opacity-60">
                   {busy ? "Creating account…" : "Create account"}
                 </button>
-                <p className="mt-4 px-2 text-center text-xs leading-relaxed text-muted-foreground">By signing up you agree to our <Link to="/terms" className="text-primary hover:underline">Terms</Link> and <Link to="/privacy" className="text-primary hover:underline">Privacy</Link>.</p>
               </form>
             )}
 
