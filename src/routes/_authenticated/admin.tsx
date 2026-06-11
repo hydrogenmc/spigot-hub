@@ -167,7 +167,15 @@ function ResourcesTab() {
                   <td className="px-4 py-3 text-muted-foreground">{(r as { categories?: { name?: string } }).categories?.name ?? "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{r.version}</td>
                   <td className="px-4 py-3 text-muted-foreground">{r.download_count}</td>
-                  <td className="px-4 py-3">{r.featured && <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">FEATURED</span>} {!r.published && <span className="rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] text-destructive">DRAFT</span>}</td>
+                  <td className="px-4 py-3">
+                    {(() => { const t = (r as { access_tier?: string }).access_tier ?? "free"; const cc = (r as { credit_cost?: number }).credit_cost ?? 0;
+                      const cls = t === "vip" ? "bg-amber-500/15 text-amber-400" : t === "credit" ? "bg-primary/15 text-primary" : "bg-emerald-500/15 text-emerald-400";
+                      const label = t === "vip" ? "VIP" : t === "credit" ? `${cc} CR` : "FREE";
+                      return <span className={`mr-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${cls}`}>{label}</span>;
+                    })()}
+                    {r.featured && <span className="mr-1 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">FEATURED</span>}
+                    {!r.published && <span className="rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] text-destructive">DRAFT</span>}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <button onClick={() => setEditing(r as unknown as Record<string, unknown>)} className="mr-2 text-xs text-primary hover:underline">Edit</button>
                     <button onClick={() => { if (confirm(`Delete "${r.title}"?`)) delMut.mutate(r.id); }} className="text-xs text-destructive hover:underline">Delete</button>
