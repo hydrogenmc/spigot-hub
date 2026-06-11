@@ -16,7 +16,7 @@ import {
   adminListUsers, adminGrantRole, adminAdjustCredits,
   adminListPlans, adminSavePlan, adminDeletePlan,
   adminListReceipts, adminApproveReceipt, adminRejectReceipt,
-  adminListMemberships,
+  adminListMemberships, adminBulkUpdateTier,
 } from "@/lib/admin-ext.functions";
 import { getSettings } from "@/lib/resources.functions";
 
@@ -120,8 +120,15 @@ function ResourcesTab() {
   const save = useServerFn(adminSaveResource);
   const del = useServerFn(adminDeleteResource);
   const cats = useServerFn(listCategories);
+  const bulkTier = useServerFn(adminBulkUpdateTier);
 
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null);
+  const [q, setQ] = useState("");
+  const [tierFilter, setTierFilter] = useState<"all" | "free" | "credit" | "vip">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft">("all");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkCost, setBulkCost] = useState(5);
+
   const resources = useQuery({ queryKey: ["admin-resources"], queryFn: () => list() });
   const categories = useQuery({ queryKey: ["categories-admin"], queryFn: () => cats() });
 
@@ -135,6 +142,11 @@ function ResourcesTab() {
     onSuccess: () => { toast.success("Deleted"); qc.invalidateQueries({ queryKey: ["admin-resources"] }); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Delete failed"),
   });
+  const bulkMut = useMutation({
+    mutationFn: (v: { ids: string[]; access_tier: "free" | "credit" | "vip"; credit_cost?: number }) => bulkTier({ data: v }),
+    onSuccess: (r) => { toast.success(`Updated ${r.count} resource(s)`); setSelected(new Set()); qc.invalidateQueries({ queryKey: ["admin-resources"] }); },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Bulk update failed"),
+  });
 
   const blank = () => setEditing({
     slug: "", title: "", description: "", long_description: "", version: "1.0.0", mc_version: "1.20+",
@@ -143,26 +155,100 @@ function ResourcesTab() {
     access_tier: "free", credit_cost: 0,
   });
 
+  const all = resources.data ?? [];
+  const filtered = all.filter((r) => {
+    const tier = (r as { access_tier?: string }).access_tier ?? "free";
+    if (tierFilter !== "all" && tier !== tierFilter) return false;
+    if (statusFilter === "published" && !r.published) return false;
+    if (statusFilter === "draft" && r.published) return false;
+    if (q && !r.title.toLowerCase().includes(q.toLowerCase())) return false;
+    return true;
+  });
+
+  const toggleAll = () => {
+    if (selected.size === filtered.length) setSelected(new Set());
+    else setSelected(new Set(filtered.map((r) => r.id)));
+  };
+  const toggleOne = (id: string) => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setSelected(next);
+  };
+  const applyBulk = (tier: "free" | "credit" | "vip") => {
+    if (selected.size === 0) return toast.error("Select resources first");
+    bulkMut.mutate({ ids: Array.from(selected), access_tier: tier, credit_cost: tier === "credit" ? bulkCost : undefined });
+  };
+
+  const counts = { free: 0, credit: 0, vip: 0 };
+  all.forEach((r) => { const t = (r as { access_tier?: string }).access_tier ?? "free"; counts[t as keyof typeof counts]++; });
+
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{resources.data?.length ?? 0} resources</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span>{all.length} total</span>
+          <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-emerald-400">{counts.free} free</span>
+          <span className="rounded bg-primary/15 px-1.5 py-0.5 text-primary">{counts.credit} credit</span>
+          <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-400">{counts.vip} vip</span>
+        </div>
         <button onClick={blank} className="btn-glow hover:btn-glow-hover inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm"><Plus size={14} /> New resource</button>
       </div>
+
+      {/* Filters */}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search title…"
+          className="w-full max-w-xs rounded-lg bg-input/60 px-3 py-2 text-sm outline-none ring-1 ring-border/60 focus:ring-primary" />
+        <select value={tierFilter} onChange={(e) => setTierFilter(e.target.value as typeof tierFilter)}
+          className="rounded-lg bg-input/60 px-3 py-2 text-sm ring-1 ring-border/60 focus:ring-primary">
+          <option value="all">All tiers</option>
+          <option value="free">Free only</option>
+          <option value="credit">Credit only</option>
+          <option value="vip">VIP only</option>
+        </select>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+          className="rounded-lg bg-input/60 px-3 py-2 text-sm ring-1 ring-border/60 focus:ring-primary">
+          <option value="all">All status</option>
+          <option value="published">Published</option>
+          <option value="draft">Drafts</option>
+        </select>
+      </div>
+
+      {/* Bulk action bar */}
+      {selected.size > 0 && (
+        <div className="glass-strong mt-4 flex flex-wrap items-center gap-2 rounded-xl p-3 text-sm">
+          <span className="font-medium">{selected.size} selected · set tier to:</span>
+          <button onClick={() => applyBulk("free")} disabled={bulkMut.isPending}
+            className="rounded-lg bg-emerald-500/20 px-3 py-1.5 text-xs font-medium text-emerald-400 hover:bg-emerald-500/30 disabled:opacity-50">Free</button>
+          <div className="inline-flex items-center gap-1 rounded-lg bg-primary/20 px-2 py-1">
+            <button onClick={() => applyBulk("credit")} disabled={bulkMut.isPending}
+              className="text-xs font-medium text-primary hover:underline disabled:opacity-50">Paid Credits</button>
+            <input type="number" min={1} value={bulkCost} onChange={(e) => setBulkCost(Number(e.target.value))}
+              className="ml-1 w-14 rounded bg-input/60 px-1.5 py-0.5 text-xs ring-1 ring-border/60" />
+            <span className="text-[10px] text-primary/70">cr</span>
+          </div>
+          <button onClick={() => applyBulk("vip")} disabled={bulkMut.isPending}
+            className="rounded-lg bg-amber-500/20 px-3 py-1.5 text-xs font-medium text-amber-400 hover:bg-amber-500/30 disabled:opacity-50">VIP only</button>
+          <button onClick={() => setSelected(new Set())} className="ml-auto text-xs text-muted-foreground hover:text-foreground">Clear</button>
+        </div>
+      )}
 
       {editing && <ResourceEditor data={editing} setData={setEditing} categories={categories.data ?? []} onSave={(d) => saveMut.mutate(d)} onCancel={() => setEditing(null)} busy={saveMut.isPending} />}
 
       <div className="glass mt-6 overflow-hidden rounded-2xl">
-        {(resources.data ?? []).length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">No resources yet. Create your first one.</div>
+        {filtered.length === 0 ? (
+          <div className="p-8 text-center text-muted-foreground">No resources match.</div>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-secondary/40 text-xs uppercase text-muted-foreground">
-              <tr><th className="px-4 py-3 text-left">Title</th><th className="px-4 py-3 text-left">Category</th><th className="px-4 py-3 text-left">Ver</th><th className="px-4 py-3 text-left">DL</th><th className="px-4 py-3 text-left">Status</th><th className="px-4 py-3"></th></tr>
+              <tr>
+                <th className="px-3 py-3"><input type="checkbox" checked={selected.size === filtered.length && filtered.length > 0} onChange={toggleAll} /></th>
+                <th className="px-4 py-3 text-left">Title</th><th className="px-4 py-3 text-left">Category</th><th className="px-4 py-3 text-left">Ver</th><th className="px-4 py-3 text-left">DL</th><th className="px-4 py-3 text-left">Status</th><th className="px-4 py-3"></th>
+              </tr>
             </thead>
             <tbody>
-              {(resources.data ?? []).map((r) => (
-                <tr key={r.id} className="border-t border-border/40">
+              {filtered.map((r) => (
+                <tr key={r.id} className={`border-t border-border/40 ${selected.has(r.id) ? "bg-primary/5" : ""}`}>
+                  <td className="px-3 py-3"><input type="checkbox" checked={selected.has(r.id)} onChange={() => toggleOne(r.id)} /></td>
                   <td className="px-4 py-3 font-medium text-foreground">{r.title}</td>
                   <td className="px-4 py-3 text-muted-foreground">{(r as { categories?: { name?: string } }).categories?.name ?? "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{r.version}</td>
