@@ -255,6 +255,17 @@ function ResourceEditor({ data, setData, categories, onSave, onCancel, busy }: {
             onChange={(e) => update("tags", e.target.value.split(",").map(s => s.trim()).filter(Boolean))} className={inp} />
         </Field>
         <Field label="Changelog" className="sm:col-span-2"><RichTextEditor value={String(data.changelog ?? "")} onChange={(v) => update("changelog", v)} rows={4} placeholder="What changed in this version?" /></Field>
+        <Field label="Access tier">
+          <select value={String(data.access_tier ?? "free")} onChange={(e) => update("access_tier", e.target.value)} className={inp}>
+            <option value="free">Free — anyone signed in</option>
+            <option value="credit">Paid (Credits)</option>
+            <option value="vip">VIP only</option>
+          </select>
+        </Field>
+        <Field label="Credit cost (only for Paid tier)">
+          <input type="number" min={0} disabled={data.access_tier !== "credit"} value={Number(data.credit_cost ?? 0)}
+            onChange={(e) => update("credit_cost", Number(e.target.value))} className={`${inp} disabled:opacity-50`} />
+        </Field>
         <div className="flex items-center gap-6 sm:col-span-2">
           <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={!!data.featured} onChange={(e) => update("featured", e.target.checked)} /> Featured</label>
           <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={!!data.published} onChange={(e) => update("published", e.target.checked)} /> Published</label>
