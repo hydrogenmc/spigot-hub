@@ -82,6 +82,35 @@ function AccountPage() {
             footer={<Link to="/resources" className="text-xs text-primary hover:underline">Browse resources →</Link>} />
         </div>
 
+        <section className="glass-strong mt-6 rounded-2xl p-6">
+          <div className="flex items-center gap-2">
+            <Crown size={18} className="text-amber-400" />
+            <h2 className="font-display text-lg font-semibold">{data?.isVip ? "Your VIP Benefits" : "VIP Benefits"}</h2>
+            {data?.isVip && <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-400">ACTIVE</span>}
+          </div>
+          <ul className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+            {[
+              "Access to all VIP-only resources",
+              "Higher (or unlimited) daily download limit",
+              "No credit cost on Paid resources",
+              "Priority support & early access",
+            ].map((b) => (
+              <li key={b} className="flex items-start gap-2 text-muted-foreground">
+                <Gift size={14} className="mt-0.5 text-primary" /> <span>{b}</span>
+              </li>
+            ))}
+          </ul>
+          {data?.isVip ? (
+            <p className="mt-4 text-xs text-muted-foreground">
+              {data.vipExpiresAt ? `Membership active until ${new Date(data.vipExpiresAt).toLocaleDateString()}.` : "Lifetime membership — thanks for your support!"}
+            </p>
+          ) : (
+            <Link to="/membership" className="btn-glow hover:btn-glow-hover mt-5 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm">
+              <Crown size={14} /> Upgrade to VIP
+            </Link>
+          )}
+        </section>
+
         <section className="glass-strong mt-8 rounded-2xl p-6">
           <h2 className="font-display text-lg font-semibold">Profile</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">

@@ -140,6 +140,7 @@ function ResourcesTab() {
     slug: "", title: "", description: "", long_description: "", version: "1.0.0", mc_version: "1.20+",
     category_id: categories.data?.[0]?.id ?? null, author: "Cubyn Team", thumbnail_url: "", file_url: "",
     external_url: "", changelog: "", tags: [], featured: false, published: true,
+    access_tier: "free", credit_cost: 0,
   });
 
   return (
@@ -166,7 +167,15 @@ function ResourcesTab() {
                   <td className="px-4 py-3 text-muted-foreground">{(r as { categories?: { name?: string } }).categories?.name ?? "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{r.version}</td>
                   <td className="px-4 py-3 text-muted-foreground">{r.download_count}</td>
-                  <td className="px-4 py-3">{r.featured && <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">FEATURED</span>} {!r.published && <span className="rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] text-destructive">DRAFT</span>}</td>
+                  <td className="px-4 py-3">
+                    {(() => { const t = (r as { access_tier?: string }).access_tier ?? "free"; const cc = (r as { credit_cost?: number }).credit_cost ?? 0;
+                      const cls = t === "vip" ? "bg-amber-500/15 text-amber-400" : t === "credit" ? "bg-primary/15 text-primary" : "bg-emerald-500/15 text-emerald-400";
+                      const label = t === "vip" ? "VIP" : t === "credit" ? `${cc} CR` : "FREE";
+                      return <span className={`mr-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${cls}`}>{label}</span>;
+                    })()}
+                    {r.featured && <span className="mr-1 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">FEATURED</span>}
+                    {!r.published && <span className="rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] text-destructive">DRAFT</span>}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <button onClick={() => setEditing(r as unknown as Record<string, unknown>)} className="mr-2 text-xs text-primary hover:underline">Edit</button>
                     <button onClick={() => { if (confirm(`Delete "${r.title}"?`)) delMut.mutate(r.id); }} className="text-xs text-destructive hover:underline">Delete</button>
@@ -246,6 +255,17 @@ function ResourceEditor({ data, setData, categories, onSave, onCancel, busy }: {
             onChange={(e) => update("tags", e.target.value.split(",").map(s => s.trim()).filter(Boolean))} className={inp} />
         </Field>
         <Field label="Changelog" className="sm:col-span-2"><RichTextEditor value={String(data.changelog ?? "")} onChange={(v) => update("changelog", v)} rows={4} placeholder="What changed in this version?" /></Field>
+        <Field label="Access tier">
+          <select value={String(data.access_tier ?? "free")} onChange={(e) => update("access_tier", e.target.value)} className={inp}>
+            <option value="free">Free — anyone signed in</option>
+            <option value="credit">Paid (Credits)</option>
+            <option value="vip">VIP only</option>
+          </select>
+        </Field>
+        <Field label="Credit cost (only for Paid tier)">
+          <input type="number" min={0} disabled={data.access_tier !== "credit"} value={Number(data.credit_cost ?? 0)}
+            onChange={(e) => update("credit_cost", Number(e.target.value))} className={`${inp} disabled:opacity-50`} />
+        </Field>
         <div className="flex items-center gap-6 sm:col-span-2">
           <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={!!data.featured} onChange={(e) => update("featured", e.target.checked)} /> Featured</label>
           <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={!!data.published} onChange={(e) => update("published", e.target.checked)} /> Published</label>

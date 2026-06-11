@@ -25,6 +25,8 @@ const resourceSchema = z.object({
   tags: z.array(z.string().max(40)).max(20).default([]),
   featured: z.boolean().default(false),
   published: z.boolean().default(true),
+  access_tier: z.enum(["free", "credit", "vip"]).default("free"),
+  credit_cost: z.coerce.number().int().min(0).max(10000).default(0),
 });
 
 export const adminCheck = createServerFn({ method: "GET" })
