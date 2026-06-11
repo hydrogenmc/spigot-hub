@@ -140,6 +140,7 @@ function ResourcesTab() {
     slug: "", title: "", description: "", long_description: "", version: "1.0.0", mc_version: "1.20+",
     category_id: categories.data?.[0]?.id ?? null, author: "Cubyn Team", thumbnail_url: "", file_url: "",
     external_url: "", changelog: "", tags: [], featured: false, published: true,
+    access_tier: "free", credit_cost: 0,
   });
 
   return (
