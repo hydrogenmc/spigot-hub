@@ -163,9 +163,23 @@ export const adminApproveReceipt = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: res, error } = await supabaseAdmin.rpc("admin_approve_receipt", { _receipt_id: data.id, _note: data.note ?? "" });
-    if (error) throw new Error(error.message);
-    return res as { ok: boolean; payment_id?: string };
+    const { data: r, error: rErr } = await supabaseAdmin.from("payment_receipts").select("*").eq("id", data.id).single();
+    if (rErr || !r) throw new Error("Receipt not found");
+    if (r.status === "approved" || r.status === "auto_approved") return { ok: true, already: true };
+    const { data: plan } = await supabaseAdmin.from("membership_plans").select("price_php").eq("id", r.plan_id).single();
+    const { data: pay, error: payErr } = await supabaseAdmin.from("payments").insert({
+      user_id: r.user_id, plan_id: r.plan_id,
+      amount_php: r.ocr_amount_php ?? plan?.price_php ?? 0,
+      method: r.method, provider: "receipt", provider_ref: r.ocr_reference,
+      status: "paid", raw: { receipt_id: r.id },
+    }).select("id").single();
+    if (payErr) throw new Error(payErr.message);
+    const { error: upErr } = await supabaseAdmin.from("payment_receipts").update({
+      status: "approved", payment_id: pay.id, reviewed_by: context.userId,
+      reviewed_at: new Date().toISOString(), admin_notes: data.note ?? "",
+    }).eq("id", data.id);
+    if (upErr) throw new Error(upErr.message);
+    return { ok: true, payment_id: pay.id };
   });
 
 export const adminRejectReceipt = createServerFn({ method: "POST" })
@@ -174,9 +188,33 @@ export const adminRejectReceipt = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.rpc("admin_reject_receipt", { _receipt_id: data.id, _note: data.note });
+    const { error } = await supabaseAdmin.from("payment_receipts").update({
+      status: "rejected", reviewed_by: context.userId,
+      reviewed_at: new Date().toISOString(), admin_notes: data.note,
+    }).eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+// ------------------- Bulk resource tier update -------------------
+export const adminBulkUpdateTier = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { ids: string[]; access_tier: "free" | "credit" | "vip"; credit_cost?: number }) =>
+    z.object({
+      ids: z.array(z.string().uuid()).min(1).max(500),
+      access_tier: z.enum(["free", "credit", "vip"]),
+      credit_cost: z.number().int().min(0).max(10000).optional(),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const patch: Record<string, unknown> = { access_tier: data.access_tier };
+    if (data.access_tier === "credit") patch.credit_cost = Math.max(1, data.credit_cost ?? 1);
+    else patch.credit_cost = 0;
+    const { error } = await supabaseAdmin.from("resources").update(patch).in("id", data.ids);
+    if (error) throw new Error(error.message);
+    return { ok: true, count: data.ids.length };
   });
 
 // ------------------- Memberships overview -------------------
