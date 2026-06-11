@@ -211,9 +211,10 @@ export const adminBulkUpdateTier = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const patch: Record<string, unknown> = { access_tier: data.access_tier };
-    if (data.access_tier === "credit") patch.credit_cost = Math.max(1, data.credit_cost ?? 1);
-    else patch.credit_cost = 0;
+    const patch = {
+      access_tier: data.access_tier,
+      credit_cost: data.access_tier === "credit" ? Math.max(1, data.credit_cost ?? 1) : 0,
+    };
     const { error } = await supabaseAdmin.from("resources").update(patch).in("id", data.ids);
     if (error) throw new Error(error.message);
     return { ok: true, count: data.ids.length };
