@@ -166,7 +166,9 @@ export const adminApproveReceipt = createServerFn({ method: "POST" })
     const { data: r, error: rErr } = await supabaseAdmin.from("payment_receipts").select("*").eq("id", data.id).single();
     if (rErr || !r) throw new Error("Receipt not found");
     if (r.status === "approved" || r.status === "auto_approved") return { ok: true, already: true };
-    const { data: plan } = await supabaseAdmin.from("membership_plans").select("price_php").eq("id", r.plan_id).single();
+    const { data: plan } = r.plan_id
+      ? await supabaseAdmin.from("membership_plans").select("price_php").eq("id", r.plan_id).single()
+      : { data: null as { price_php: number } | null };
     const { data: pay, error: payErr } = await supabaseAdmin.from("payments").insert({
       user_id: r.user_id, plan_id: r.plan_id,
       amount_php: r.ocr_amount_php ?? plan?.price_php ?? 0,
