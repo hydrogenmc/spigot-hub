@@ -148,6 +148,51 @@ function ResourcesTab() {
     onSuccess: (r) => { toast.success(`Updated ${r.count} resource(s)`); setSelected(new Set()); qc.invalidateQueries({ queryKey: ["admin-resources"] }); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Bulk update failed"),
   });
+  const csvMut = useMutation({
+    mutationFn: (rows: Array<{ key: string; access_tier: string; credit_cost?: number }>) => csvImport({ data: { rows } }),
+    onSuccess: (r) => {
+      toast.success(`CSV: updated ${r.updated}, skipped ${r.skipped.length}`);
+      if (r.skipped.length) console.warn("CSV skipped rows:", r.skipped);
+      qc.invalidateQueries({ queryKey: ["admin-resources"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "CSV import failed"),
+  });
+
+  const onCsvFile = async (file: File) => {
+    try {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      if (lines.length === 0) throw new Error("Empty CSV");
+      const parseLine = (l: string): string[] => {
+        const out: string[] = []; let cur = ""; let inQ = false;
+        for (let i = 0; i < l.length; i++) {
+          const c = l[i];
+          if (inQ) { if (c === '"' && l[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') inQ = false; else cur += c; }
+          else { if (c === ",") { out.push(cur); cur = ""; } else if (c === '"') inQ = true; else cur += c; }
+        }
+        out.push(cur);
+        return out.map((s) => s.trim());
+      };
+      const header = parseLine(lines[0]).map((h) => h.toLowerCase());
+      const keyIdx = header.findIndex((h) => h === "slug" || h === "id" || h === "key");
+      const tierIdx = header.indexOf("access_tier");
+      const costIdx = header.indexOf("credit_cost");
+      if (keyIdx < 0 || tierIdx < 0) throw new Error('CSV must have "slug" (or "id") and "access_tier" columns');
+      const rows = lines.slice(1).map((l) => {
+        const cols = parseLine(l);
+        return {
+          key: cols[keyIdx] ?? "",
+          access_tier: (cols[tierIdx] ?? "").toLowerCase(),
+          credit_cost: costIdx >= 0 ? Number(cols[costIdx] || 0) : 0,
+        };
+      }).filter((r) => r.key);
+      if (rows.length === 0) throw new Error("No data rows");
+      if (rows.length > 1000) throw new Error("Max 1000 rows per upload");
+      csvMut.mutate(rows);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Invalid CSV");
+    }
+  };
 
   const blank = () => setEditing({
     slug: "", title: "", description: "", long_description: "", version: "1.0.0", mc_version: "1.20+",
