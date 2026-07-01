@@ -4,6 +4,7 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { Mail, Lock, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { Logo } from "@/components/Logo";
 import { Particles } from "@/components/Particles";
 
