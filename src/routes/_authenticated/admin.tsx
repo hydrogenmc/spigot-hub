@@ -237,7 +237,18 @@ function ResourcesTab() {
           <span className="rounded bg-primary/15 px-1.5 py-0.5 text-primary">{counts.credit} credit</span>
           <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-400">{counts.vip} vip</span>
         </div>
-        <button onClick={blank} className="btn-glow hover:btn-glow-hover inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm"><Plus size={14} /> New resource</button>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary">
+            <Upload size={14} /> {csvMut.isPending ? "Importing…" : "Import CSV"}
+            <input type="file" accept=".csv,text/csv" className="hidden" disabled={csvMut.isPending}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) onCsvFile(f); e.target.value = ""; }} />
+          </label>
+          <a
+            href={"data:text/csv;charset=utf-8," + encodeURIComponent("slug,access_tier,credit_cost\nexample-plugin,free,0\nanother-plugin,credit,5\nvip-plugin,vip,0\n")}
+            download="cubyn-tiers-template.csv"
+            className="text-xs text-muted-foreground hover:text-primary">Template</a>
+          <button onClick={blank} className="btn-glow hover:btn-glow-hover inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm"><Plus size={14} /> New resource</button>
+        </div>
       </div>
 
       {/* Filters */}
