@@ -16,7 +16,7 @@ import {
   adminListUsers, adminGrantRole, adminAdjustCredits,
   adminListPlans, adminSavePlan, adminDeletePlan,
   adminListReceipts, adminApproveReceipt, adminRejectReceipt,
-  adminListMemberships, adminBulkUpdateTier,
+  adminListMemberships, adminBulkUpdateTier, adminCsvUpdateTiers,
 } from "@/lib/admin-ext.functions";
 import { getSettings } from "@/lib/resources.functions";
 
@@ -121,6 +121,7 @@ function ResourcesTab() {
   const del = useServerFn(adminDeleteResource);
   const cats = useServerFn(listCategories);
   const bulkTier = useServerFn(adminBulkUpdateTier);
+  const csvImport = useServerFn(adminCsvUpdateTiers);
 
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null);
   const [q, setQ] = useState("");
@@ -147,6 +148,51 @@ function ResourcesTab() {
     onSuccess: (r) => { toast.success(`Updated ${r.count} resource(s)`); setSelected(new Set()); qc.invalidateQueries({ queryKey: ["admin-resources"] }); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Bulk update failed"),
   });
+  const csvMut = useMutation({
+    mutationFn: (rows: Array<{ key: string; access_tier: string; credit_cost?: number }>) => csvImport({ data: { rows } }),
+    onSuccess: (r) => {
+      toast.success(`CSV: updated ${r.updated}, skipped ${r.skipped.length}`);
+      if (r.skipped.length) console.warn("CSV skipped rows:", r.skipped);
+      qc.invalidateQueries({ queryKey: ["admin-resources"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "CSV import failed"),
+  });
+
+  const onCsvFile = async (file: File) => {
+    try {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      if (lines.length === 0) throw new Error("Empty CSV");
+      const parseLine = (l: string): string[] => {
+        const out: string[] = []; let cur = ""; let inQ = false;
+        for (let i = 0; i < l.length; i++) {
+          const c = l[i];
+          if (inQ) { if (c === '"' && l[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') inQ = false; else cur += c; }
+          else { if (c === ",") { out.push(cur); cur = ""; } else if (c === '"') inQ = true; else cur += c; }
+        }
+        out.push(cur);
+        return out.map((s) => s.trim());
+      };
+      const header = parseLine(lines[0]).map((h) => h.toLowerCase());
+      const keyIdx = header.findIndex((h) => h === "slug" || h === "id" || h === "key");
+      const tierIdx = header.indexOf("access_tier");
+      const costIdx = header.indexOf("credit_cost");
+      if (keyIdx < 0 || tierIdx < 0) throw new Error('CSV must have "slug" (or "id") and "access_tier" columns');
+      const rows = lines.slice(1).map((l) => {
+        const cols = parseLine(l);
+        return {
+          key: cols[keyIdx] ?? "",
+          access_tier: (cols[tierIdx] ?? "").toLowerCase(),
+          credit_cost: costIdx >= 0 ? Number(cols[costIdx] || 0) : 0,
+        };
+      }).filter((r) => r.key);
+      if (rows.length === 0) throw new Error("No data rows");
+      if (rows.length > 1000) throw new Error("Max 1000 rows per upload");
+      csvMut.mutate(rows);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Invalid CSV");
+    }
+  };
 
   const blank = () => setEditing({
     slug: "", title: "", description: "", long_description: "", version: "1.0.0", mc_version: "1.20+",
@@ -191,7 +237,18 @@ function ResourcesTab() {
           <span className="rounded bg-primary/15 px-1.5 py-0.5 text-primary">{counts.credit} credit</span>
           <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-400">{counts.vip} vip</span>
         </div>
-        <button onClick={blank} className="btn-glow hover:btn-glow-hover inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm"><Plus size={14} /> New resource</button>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary">
+            <Upload size={14} /> {csvMut.isPending ? "Importing…" : "Import CSV"}
+            <input type="file" accept=".csv,text/csv" className="hidden" disabled={csvMut.isPending}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) onCsvFile(f); e.target.value = ""; }} />
+          </label>
+          <a
+            href={"data:text/csv;charset=utf-8," + encodeURIComponent("slug,access_tier,credit_cost\nexample-plugin,free,0\nanother-plugin,credit,5\nvip-plugin,vip,0\n")}
+            download="cubyn-tiers-template.csv"
+            className="text-xs text-muted-foreground hover:text-primary">Template</a>
+          <button onClick={blank} className="btn-glow hover:btn-glow-hover inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm"><Plus size={14} /> New resource</button>
+        </div>
       </div>
 
       {/* Filters */}
