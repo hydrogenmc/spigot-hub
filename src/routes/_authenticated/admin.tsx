@@ -121,6 +121,7 @@ function ResourcesTab() {
   const del = useServerFn(adminDeleteResource);
   const cats = useServerFn(listCategories);
   const bulkTier = useServerFn(adminBulkUpdateTier);
+  const csvImport = useServerFn(adminCsvUpdateTiers);
 
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null);
   const [q, setQ] = useState("");
