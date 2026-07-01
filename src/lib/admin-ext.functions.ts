@@ -220,6 +220,44 @@ export const adminBulkUpdateTier = createServerFn({ method: "POST" })
     return { ok: true, count: data.ids.length };
   });
 
+// ------------------- CSV bulk import (tier + credit cost by slug/id) -------------------
+const csvRow = z.object({
+  key: z.string().min(1).max(200),
+  access_tier: z.enum(["free", "credit", "vip"]),
+  credit_cost: z.number().int().min(0).max(10000).default(0),
+});
+export const adminCsvUpdateTiers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { rows: Array<{ key: string; access_tier: string; credit_cost?: number }> }) =>
+    z.object({ rows: z.array(csvRow.transform((r) => r)).min(1).max(1000) }).parse({
+      rows: d.rows.map((r) => ({ key: r.key, access_tier: r.access_tier, credit_cost: r.credit_cost ?? 0 })),
+    }),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: all, error: fErr } = await supabaseAdmin.from("resources").select("id, slug");
+    if (fErr) throw new Error(fErr.message);
+    const bySlug = new Map((all ?? []).map((r) => [r.slug, r.id]));
+    const byId = new Set((all ?? []).map((r) => r.id));
+    const results = { updated: 0, skipped: [] as Array<{ key: string; reason: string }> };
+    for (const row of data.rows) {
+      const id = byId.has(row.key) ? row.key : bySlug.get(row.key);
+      if (!id) { results.skipped.push({ key: row.key, reason: "not found" }); continue; }
+      if (row.access_tier === "credit" && row.credit_cost <= 0) {
+        results.skipped.push({ key: row.key, reason: "credit tier needs credit_cost > 0" }); continue;
+      }
+      const patch = {
+        access_tier: row.access_tier,
+        credit_cost: row.access_tier === "credit" ? row.credit_cost : 0,
+      };
+      const { error } = await supabaseAdmin.from("resources").update(patch).eq("id", id);
+      if (error) results.skipped.push({ key: row.key, reason: error.message });
+      else results.updated++;
+    }
+    return results;
+  });
+
 // ------------------- Memberships overview -------------------
 export const adminListMemberships = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
