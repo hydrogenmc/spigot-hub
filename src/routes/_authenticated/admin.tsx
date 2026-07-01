@@ -16,7 +16,7 @@ import {
   adminListUsers, adminGrantRole, adminAdjustCredits,
   adminListPlans, adminSavePlan, adminDeletePlan,
   adminListReceipts, adminApproveReceipt, adminRejectReceipt,
-  adminListMemberships, adminBulkUpdateTier,
+  adminListMemberships, adminBulkUpdateTier, adminCsvUpdateTiers,
 } from "@/lib/admin-ext.functions";
 import { getSettings } from "@/lib/resources.functions";
 
