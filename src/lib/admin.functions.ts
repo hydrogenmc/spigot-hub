@@ -27,7 +27,11 @@ const resourceSchema = z.object({
   published: z.boolean().default(true),
   access_tier: z.enum(["free", "credit", "vip"]).default("free"),
   credit_cost: z.coerce.number().int().min(0).max(10000).default(0),
-});
+}).transform((v) => ({
+  ...v,
+  // Paid tier requires a positive cost; default to 1 to satisfy DB validation.
+  credit_cost: v.access_tier === "credit" ? Math.max(1, v.credit_cost || 1) : 0,
+}));
 
 export const adminCheck = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
