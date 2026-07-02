@@ -342,6 +342,34 @@ function ResourceEditor({ data, setData, categories, onSave, onCancel, busy }: {
 
   const update = (k: string, v: unknown) => setData({ ...data, [k]: v });
 
+  const tier = String(data.access_tier ?? "free");
+  const costNum = Number(data.credit_cost ?? 0);
+  const errors: Record<string, string> = {};
+  if (!String(data.title ?? "").trim()) errors.title = "Title is required";
+  if (!/^[a-z0-9-]+$/i.test(String(data.slug ?? ""))) errors.slug = "Slug must be letters, numbers, or dashes";
+  if (!String(data.version ?? "").trim()) errors.version = "Version is required";
+  if (!String(data.mc_version ?? "").trim()) errors.mc_version = "MC Version is required";
+  if (!String(data.author ?? "").trim()) errors.author = "Author is required";
+  if (!["free", "credit", "vip"].includes(tier)) errors.access_tier = "Pick a valid tier";
+  if (tier === "credit") {
+    if (!Number.isFinite(costNum) || Number.isNaN(costNum)) errors.credit_cost = "Credit cost must be a number";
+    else if (!Number.isInteger(costNum)) errors.credit_cost = "Credit cost must be a whole number";
+    else if (costNum < 1) errors.credit_cost = "Paid tier requires at least 1 credit";
+    else if (costNum > 10000) errors.credit_cost = "Credit cost must be 10000 or less";
+  }
+  if (!String(data.file_url ?? "").trim() && !String(data.external_url ?? "").trim()) {
+    errors.file_url = "Upload a file or provide an external URL";
+  }
+
+  const trySave = () => {
+    if (Object.keys(errors).length > 0) {
+      toast.error(Object.values(errors)[0]);
+      return;
+    }
+    const payload = { ...data, access_tier: tier, credit_cost: tier === "credit" ? Math.max(1, Math.floor(costNum)) : 0 };
+    onSave(payload);
+  };
+
   const uploadFile = async (file: File, field: "thumbnail_url" | "file_url") => {
     setUploading(field);
     try {
