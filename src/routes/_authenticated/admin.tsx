@@ -427,23 +427,32 @@ function ResourceEditor({ data, setData, categories, onSave, onCancel, busy }: {
         </Field>
         <Field label="Changelog" className="sm:col-span-2"><RichTextEditor value={String(data.changelog ?? "")} onChange={(v) => update("changelog", v)} rows={4} placeholder="What changed in this version?" /></Field>
         <Field label="Access tier">
-          <select value={String(data.access_tier ?? "free")} onChange={(e) => { const t = e.target.value; update("access_tier", t); if (t === "credit" && (!data.credit_cost || Number(data.credit_cost) < 1)) update("credit_cost", 1); if (t !== "credit") update("credit_cost", 0); }} className={inp}>
+          <select value={tier} onChange={(e) => { const t = e.target.value; update("access_tier", t); if (t === "credit" && (!data.credit_cost || Number(data.credit_cost) < 1)) update("credit_cost", 1); if (t !== "credit") update("credit_cost", 0); }} className={inp}>
             <option value="free">Free — anyone signed in</option>
             <option value="credit">Paid (Credits)</option>
             <option value="vip">VIP only</option>
           </select>
+          <p className="mt-1 text-[11px] text-muted-foreground">Free: any signed-in user. Paid: costs credits. VIP: requires active VIP.</p>
         </Field>
-        <Field label="Credit cost (only for Paid tier)">
-          <input type="number" min={0} disabled={data.access_tier !== "credit"} value={Number(data.credit_cost ?? 0)}
-            onChange={(e) => update("credit_cost", Number(e.target.value))} className={`${inp} disabled:opacity-50`} />
+        <Field label={`Credit cost ${tier === "credit" ? "(required, min 1)" : "(only for Paid tier)"}`}>
+          <input type="number" min={tier === "credit" ? 1 : 0} step={1} disabled={tier !== "credit"}
+            value={Number(data.credit_cost ?? 0)}
+            onChange={(e) => update("credit_cost", Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+            className={`${inp} disabled:opacity-50 ${errors.credit_cost ? "ring-destructive" : ""}`} />
+          {errors.credit_cost && <p className="mt-1 text-[11px] text-destructive">{errors.credit_cost}</p>}
         </Field>
         <div className="flex items-center gap-6 sm:col-span-2">
           <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={!!data.featured} onChange={(e) => update("featured", e.target.checked)} /> Featured</label>
           <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={!!data.published} onChange={(e) => update("published", e.target.checked)} /> Published</label>
         </div>
       </div>
+      {Object.keys(errors).length > 0 && (
+        <ul className="mt-4 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+          {Object.entries(errors).map(([k, v]) => <li key={k}>• {v}</li>)}
+        </ul>
+      )}
       <div className="mt-6 flex gap-2">
-        <button onClick={() => onSave(data)} disabled={busy} className="btn-glow hover:btn-glow-hover inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm disabled:opacity-60"><Save size={14} /> {busy ? "Saving…" : "Save"}</button>
+        <button onClick={trySave} disabled={busy || Object.keys(errors).length > 0} className="btn-glow hover:btn-glow-hover inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm disabled:opacity-60"><Save size={14} /> {busy ? "Saving…" : "Save"}</button>
         <button onClick={onCancel} className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-secondary">Cancel</button>
       </div>
     </div>
