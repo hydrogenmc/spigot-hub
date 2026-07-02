@@ -399,7 +399,7 @@ function ResourceEditor({ data, setData, categories, onSave, onCancel, busy }: {
         </Field>
         <Field label="Changelog" className="sm:col-span-2"><RichTextEditor value={String(data.changelog ?? "")} onChange={(v) => update("changelog", v)} rows={4} placeholder="What changed in this version?" /></Field>
         <Field label="Access tier">
-          <select value={String(data.access_tier ?? "free")} onChange={(e) => update("access_tier", e.target.value)} className={inp}>
+          <select value={String(data.access_tier ?? "free")} onChange={(e) => { const t = e.target.value; update("access_tier", t); if (t === "credit" && (!data.credit_cost || Number(data.credit_cost) < 1)) update("credit_cost", 1); if (t !== "credit") update("credit_cost", 0); }} className={inp}>
             <option value="free">Free — anyone signed in</option>
             <option value="credit">Paid (Credits)</option>
             <option value="vip">VIP only</option>
