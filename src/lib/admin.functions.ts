@@ -10,14 +10,14 @@ async function assertAdmin(userId: string) {
 
 const resourceSchema = z.object({
   id: z.string().uuid().optional(),
-  slug: z.string().min(1).max(120).regex(/^[a-z0-9-]+$/i),
-  title: z.string().min(1).max(200),
+  slug: z.string().min(1).max(120).regex(/^[a-z0-9-]+$/i, { message: "Slug must be letters, numbers, or dashes" }),
+  title: z.string().min(1, { message: "Title is required" }).max(200),
   description: z.string().max(500).default(""),
   long_description: z.string().max(20000).default(""),
-  version: z.string().min(1).max(40),
-  mc_version: z.string().min(1).max(40),
+  version: z.string().min(1, { message: "Version is required" }).max(40),
+  mc_version: z.string().min(1, { message: "MC Version is required" }).max(40),
   category_id: z.string().uuid().nullable(),
-  author: z.string().min(1).max(100),
+  author: z.string().min(1, { message: "Author is required" }).max(100),
   thumbnail_url: z.string().url().nullable().or(z.literal("")).transform(v => v || null),
   file_url: z.string().url().nullable().or(z.literal("")).transform(v => v || null),
   external_url: z.string().url().nullable().or(z.literal("")).transform(v => v || null),
@@ -26,12 +26,18 @@ const resourceSchema = z.object({
   featured: z.boolean().default(false),
   published: z.boolean().default(true),
   access_tier: z.enum(["free", "credit", "vip"]).default("free"),
-  credit_cost: z.coerce.number().int().min(0).max(10000).default(0),
-}).transform((v) => ({
-  ...v,
-  // Paid tier requires a positive cost; default to 1 to satisfy DB validation.
-  credit_cost: v.access_tier === "credit" ? Math.max(1, v.credit_cost || 1) : 0,
-}));
+  credit_cost: z.coerce.number({ invalid_type_error: "Credit cost must be a number" }).int({ message: "Credit cost must be a whole number" }).min(0).max(10000).default(0),
+})
+  .superRefine((v, ctx) => {
+    if (v.access_tier === "credit" && (!Number.isFinite(v.credit_cost) || v.credit_cost < 1)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["credit_cost"], message: "Paid (credit) tier requires credit_cost >= 1" });
+    }
+  })
+  .transform((v) => ({
+    ...v,
+    // Safety net: enforce min 1 for credit tier, zero for others.
+    credit_cost: v.access_tier === "credit" ? Math.max(1, Math.floor(v.credit_cost)) : 0,
+  }));
 
 export const adminCheck = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
