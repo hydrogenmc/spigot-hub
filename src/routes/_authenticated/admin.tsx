@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { LogOut, Plus, Trash2, Save, Upload, Settings as Cog, FolderTree, Package, Users as UsersIcon, Crown, Receipt, Coins, CheckCircle2, XCircle } from "lucide-react";
+import { LogOut, Plus, Trash2, Save, Upload, Settings as Cog, FolderTree, Package, Users as UsersIcon, Crown, Receipt, Coins, CheckCircle2, XCircle, ShieldCheck, Zap, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
 import { RichTextEditor } from "@/components/RichTextEditor";
@@ -18,6 +18,7 @@ import {
   adminListReceipts, adminApproveReceipt, adminRejectReceipt,
   adminListMemberships, adminBulkUpdateTier, adminCsvUpdateTiers,
 } from "@/lib/admin-ext.functions";
+import { adminListAuditLogs, adminQuickUpdateResource } from "@/lib/audit.functions";
 import { getSettings } from "@/lib/resources.functions";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -25,7 +26,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage,
 });
 
-type Tab = "resources" | "categories" | "users" | "plans" | "payments" | "memberships" | "settings";
+type Tab = "resources" | "categories" | "users" | "plans" | "payments" | "memberships" | "audit" | "settings";
 
 
 function AdminPage() {
@@ -87,6 +88,7 @@ function AdminPage() {
             { id: "plans" as const, icon: Crown, label: "Plans" },
             { id: "payments" as const, icon: Receipt, label: "Payments" },
             { id: "memberships" as const, icon: Crown, label: "Memberships" },
+            { id: "audit" as const, icon: ShieldCheck, label: "Audit" },
             { id: "settings" as const, icon: Cog, label: "Settings" },
           ].map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)}
@@ -103,6 +105,7 @@ function AdminPage() {
           {tab === "plans" && <PlansTab />}
           {tab === "payments" && <PaymentsTab />}
           {tab === "memberships" && <MembershipsTab />}
+          {tab === "audit" && <AuditTab />}
           {tab === "settings" && <SettingsTab />}
         </div>
       </div>
@@ -197,9 +200,10 @@ function ResourcesTab() {
   const blank = () => setEditing({
     slug: "", title: "", description: "", long_description: "", version: "1.0.0", mc_version: "1.20+",
     category_id: categories.data?.[0]?.id ?? null, author: "Cubyn Team", thumbnail_url: "", file_url: "",
-    external_url: "", changelog: "", tags: [], featured: false, published: true,
+    external_url: "", changelog: "", tags: [], dependencies: [], featured: false, published: true,
     access_tier: "free", credit_cost: 0,
   });
+  const [quickUpdate, setQuickUpdate] = useState<{ id: string; title: string; version: string } | null>(null);
 
   const all = resources.data ?? [];
   const filtered = all.filter((r) => {
@@ -320,6 +324,7 @@ function ResourcesTab() {
                     {!r.published && <span className="rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] text-destructive">DRAFT</span>}
                   </td>
                   <td className="px-4 py-3 text-right">
+                    <button onClick={() => setQuickUpdate({ id: r.id, title: r.title, version: r.version })} className="mr-2 inline-flex items-center gap-1 text-xs text-amber-400 hover:underline"><Zap size={11} /> Update</button>
                     <button onClick={() => setEditing(r as unknown as Record<string, unknown>)} className="mr-2 text-xs text-primary hover:underline">Edit</button>
                     <button onClick={() => { if (confirm(`Delete "${r.title}"?`)) delMut.mutate(r.id); }} className="text-xs text-destructive hover:underline">Delete</button>
                   </td>
@@ -329,6 +334,7 @@ function ResourcesTab() {
           </table>
         )}
       </div>
+      {quickUpdate && <QuickUpdateModal target={quickUpdate} onClose={() => setQuickUpdate(null)} onDone={() => { setQuickUpdate(null); qc.invalidateQueries({ queryKey: ["admin-resources"] }); }} />}
     </div>
   );
 }
@@ -424,6 +430,10 @@ function ResourceEditor({ data, setData, categories, onSave, onCancel, busy }: {
         <Field label="Tags (comma separated)" className="sm:col-span-2">
           <input value={Array.isArray(data.tags) ? (data.tags as string[]).join(", ") : ""}
             onChange={(e) => update("tags", e.target.value.split(",").map(s => s.trim()).filter(Boolean))} className={inp} />
+        </Field>
+        <Field label="Dependencies (comma separated — e.g. Vault, PlaceholderAPI)" className="sm:col-span-2">
+          <input value={Array.isArray(data.dependencies) ? (data.dependencies as string[]).join(", ") : ""}
+            onChange={(e) => update("dependencies", e.target.value.split(",").map(s => s.trim()).filter(Boolean))} className={inp} placeholder="Vault, PlaceholderAPI" />
         </Field>
         <Field label="Changelog" className="sm:col-span-2"><RichTextEditor value={String(data.changelog ?? "")} onChange={(v) => update("changelog", v)} rows={4} placeholder="What changed in this version?" /></Field>
         <Field label="Access tier">
@@ -853,6 +863,179 @@ function MembershipsTab() {
           {(q.data?.length ?? 0) === 0 && <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">No memberships yet.</td></tr>}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// =============================================================
+// Quick Update modal — bump version, upload new file, append changelog
+// =============================================================
+function QuickUpdateModal({ target, onClose, onDone }: { target: { id: string; title: string; version: string }; onClose: () => void; onDone: () => void }) {
+  const quick = useServerFn(adminQuickUpdateResource);
+  const uploadUrl = useServerFn(adminUploadUrl);
+  const [version, setVersion] = useState(bumpPatch(target.version));
+  const [changelog, setChangelog] = useState("");
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const [externalUrl, setExternalUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  const mut = useMutation({
+    mutationFn: () => quick({ data: {
+      id: target.id, version, changelog_entry: changelog,
+      file_url: fileUrl ?? undefined,
+      external_url: externalUrl ? externalUrl : undefined,
+    } }),
+    onSuccess: () => { toast.success(`Updated to v${version}`); onDone(); },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Update failed"),
+  });
+
+  const doUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const path = `file_url/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      const { token, publicUrl } = await uploadUrl({ data: { path } });
+      const { error } = await supabase.storage.from("resources").uploadToSignedUrl(path, token, file);
+      if (error) throw error;
+      setFileUrl(publicUrl);
+      toast.success("File uploaded");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    } finally { setUploading(false); }
+  };
+
+  const canSave = version.trim().length > 0 && changelog.trim().length > 0 && !uploading;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="glass-strong w-full max-w-lg rounded-2xl p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-display text-lg font-semibold">Quick Update</h3>
+            <p className="text-xs text-muted-foreground">{target.title} — currently v{target.version}</p>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:bg-secondary"><X size={16} /></button>
+        </div>
+        <div className="mt-4 space-y-3">
+          <Field label="New version"><input value={version} onChange={(e) => setVersion(e.target.value)} className={inp} placeholder="1.0.1" /></Field>
+          <Field label="New file (optional — leave empty to keep current file)">
+            <div className="flex gap-2">
+              <input value={fileUrl ?? ""} readOnly placeholder="No new file uploaded" className={`${inp} text-xs`} />
+              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary">
+                <Upload size={12} /> {uploading ? "…" : "Upload"}
+                <input type="file" hidden onChange={(e) => e.target.files?.[0] && doUpload(e.target.files[0])} />
+              </label>
+            </div>
+          </Field>
+          <Field label="Or external URL (optional)">
+            <input value={externalUrl} onChange={(e) => setExternalUrl(e.target.value)} className={inp} placeholder="https://…" />
+          </Field>
+          <Field label="Changelog entry (required)">
+            <RichTextEditor value={changelog} onChange={setChangelog} rows={4} placeholder="- Fixed X&#10;- Added Y" />
+          </Field>
+        </div>
+        <div className="mt-5 flex gap-2">
+          <button onClick={() => mut.mutate()} disabled={!canSave || mut.isPending}
+            className="btn-glow hover:btn-glow-hover inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm disabled:opacity-60">
+            <Zap size={14} /> {mut.isPending ? "Publishing…" : "Publish update"}
+          </button>
+          <button onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-secondary">Cancel</button>
+        </div>
+        <p className="mt-3 text-[11px] text-muted-foreground">The changelog entry will be prepended to the existing changelog with a dated version header.</p>
+      </div>
+    </div>
+  );
+}
+
+function bumpPatch(v: string): string {
+  const m = /^(\d+)\.(\d+)\.(\d+)(.*)$/.exec(v);
+  if (!m) return v;
+  return `${m[1]}.${m[2]}.${Number(m[3]) + 1}${m[4] ?? ""}`;
+}
+
+// =============================================================
+// Audit tab — access decisions, bypasses, credit spend
+// =============================================================
+function AuditTab() {
+  const list = useServerFn(adminListAuditLogs);
+  const [allowed, setAllowed] = useState<"all" | "allowed" | "denied">("all");
+  const [bypass, setBypass] = useState<"all" | "admin" | "vip" | "none">("all");
+  const q = useQuery({ queryKey: ["admin-audit", allowed, bypass], queryFn: () => list({ data: { allowed, bypass } }) });
+  const totals = q.data?.totals;
+  const logs = q.data?.logs ?? [];
+
+  return (
+    <div>
+      <div className="grid gap-3 sm:grid-cols-5">
+        <Stat label="Total" value={totals?.total ?? 0} />
+        <Stat label="Allowed" value={totals?.allowed ?? 0} cls="text-emerald-400" />
+        <Stat label="Denied" value={totals?.denied ?? 0} cls="text-destructive" />
+        <Stat label="Admin bypass" value={totals?.admin_bypass ?? 0} cls="text-primary" />
+        <Stat label="Credits spent" value={totals?.credits_spent ?? 0} cls="text-amber-400" />
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <select value={allowed} onChange={(e) => setAllowed(e.target.value as typeof allowed)} className="rounded-lg bg-input/60 px-3 py-2 text-sm ring-1 ring-border/60">
+          <option value="all">All decisions</option><option value="allowed">Allowed</option><option value="denied">Denied</option>
+        </select>
+        <select value={bypass} onChange={(e) => setBypass(e.target.value as typeof bypass)} className="rounded-lg bg-input/60 px-3 py-2 text-sm ring-1 ring-border/60">
+          <option value="all">Any bypass</option><option value="admin">Admin bypass</option><option value="vip">VIP bypass</option><option value="none">No bypass</option>
+        </select>
+        <span className="text-xs text-muted-foreground">Last {logs.length} events</span>
+      </div>
+
+      <div className="glass mt-4 overflow-x-auto rounded-2xl">
+        <table className="w-full text-sm">
+          <thead className="bg-secondary/40 text-xs uppercase text-muted-foreground">
+            <tr>
+              <th className="px-3 py-3 text-left">Time</th>
+              <th className="px-3 py-3 text-left">User</th>
+              <th className="px-3 py-3 text-left">Resource</th>
+              <th className="px-3 py-3 text-left">Tier</th>
+              <th className="px-3 py-3 text-left">Decision</th>
+              <th className="px-3 py-3 text-left">Cost</th>
+              <th className="px-3 py-3 text-left">Balance</th>
+              <th className="px-3 py-3 text-left">Bypass</th>
+            </tr>
+          </thead>
+          <tbody>
+            {logs.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">No audit events yet.</td></tr>}
+            {logs.map((l) => (
+              <tr key={l.id} className="border-t border-border/40">
+                <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap" suppressHydrationWarning>{new Date(l.created_at).toLocaleString()}</td>
+                <td className="px-3 py-2 text-xs">
+                  <div className="font-medium text-foreground">{l.user_name ?? "—"}</div>
+                  <div className="text-muted-foreground">{l.user_email ?? l.user_id?.slice(0, 8)}</div>
+                </td>
+                <td className="px-3 py-2 text-xs">
+                  {l.resource_slug ? <Link to="/resources/$slug" params={{ slug: l.resource_slug }} className="text-primary hover:underline">{l.resource_title}</Link> : "—"}
+                </td>
+                <td className="px-3 py-2 text-xs uppercase text-muted-foreground">{l.tier ?? "—"}</td>
+                <td className="px-3 py-2 text-xs">
+                  {l.allowed
+                    ? <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-emerald-400">allow</span>
+                    : <span className="rounded bg-destructive/15 px-1.5 py-0.5 text-destructive">deny · {l.reason}</span>}
+                </td>
+                <td className="px-3 py-2 text-xs text-foreground">{l.cost > 0 ? `-${l.cost}` : "—"}</td>
+                <td className="px-3 py-2 text-xs text-muted-foreground">{l.balance_after ?? "—"}</td>
+                <td className="px-3 py-2 text-xs">
+                  {l.bypass === "admin" && <span className="rounded bg-primary/15 px-1.5 py-0.5 text-primary">ADMIN</span>}
+                  {l.bypass === "vip" && <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-400">VIP</span>}
+                  {!l.bypass && <span className="text-muted-foreground">—</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, cls = "text-foreground" }: { label: string; value: number; cls?: string }) {
+  return (
+    <div className="glass-strong rounded-2xl p-4">
+      <div className="text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className={`mt-1 font-display text-2xl font-bold ${cls}`}>{value.toLocaleString()}</div>
     </div>
   );
 }

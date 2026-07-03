@@ -23,6 +23,7 @@ const resourceSchema = z.object({
   external_url: z.string().url().nullable().or(z.literal("")).transform(v => v || null),
   changelog: z.string().max(20000).default(""),
   tags: z.array(z.string().max(40)).max(20).default([]),
+  dependencies: z.array(z.string().max(200)).max(30).default([]),
   featured: z.boolean().default(false),
   published: z.boolean().default(true),
   access_tier: z.enum(["free", "credit", "vip"]).default("free"),
@@ -74,7 +75,8 @@ export const adminSaveResource = createServerFn({ method: "POST" })
     } else {
       const { id: _omit, ...insertPayload } = payload;
       void _omit;
-      const { data: row, error } = await supabaseAdmin.from("resources").insert(insertPayload).select("id").single();
+      const withUploader = { ...insertPayload, uploader_id: context.userId };
+      const { data: row, error } = await supabaseAdmin.from("resources").insert(withUploader).select("id").single();
       if (error) throw new Error(error.message);
       return { id: row.id };
     }

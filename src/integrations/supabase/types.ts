@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_audit_logs: {
+        Row: {
+          allowed: boolean
+          balance_after: number | null
+          bypass: string | null
+          cost: number
+          created_at: string
+          id: string
+          meta: Json
+          reason: string | null
+          resource_id: string | null
+          tier: string | null
+          user_id: string | null
+        }
+        Insert: {
+          allowed: boolean
+          balance_after?: number | null
+          bypass?: string | null
+          cost?: number
+          created_at?: string
+          id?: string
+          meta?: Json
+          reason?: string | null
+          resource_id?: string | null
+          tier?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          allowed?: boolean
+          balance_after?: number | null
+          bypass?: string | null
+          cost?: number
+          created_at?: string
+          id?: string
+          meta?: Json
+          reason?: string | null
+          resource_id?: string | null
+          tier?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           created_at: string
@@ -297,6 +339,44 @@ export type Database = {
         }
         Relationships: []
       }
+      resource_reviews: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          rating: number
+          resource_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body?: string
+          created_at?: string
+          id?: string
+          rating: number
+          resource_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          rating?: number
+          resource_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resource_reviews_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       resource_screenshots: {
         Row: {
           id: string
@@ -334,6 +414,7 @@ export type Database = {
           changelog: string | null
           created_at: string
           credit_cost: number
+          dependencies: string[]
           description: string
           download_count: number
           external_url: string | null
@@ -349,6 +430,7 @@ export type Database = {
           thumbnail_url: string | null
           title: string
           updated_at: string
+          uploader_id: string | null
           version: string
         }
         Insert: {
@@ -358,6 +440,7 @@ export type Database = {
           changelog?: string | null
           created_at?: string
           credit_cost?: number
+          dependencies?: string[]
           description?: string
           download_count?: number
           external_url?: string | null
@@ -373,6 +456,7 @@ export type Database = {
           thumbnail_url?: string | null
           title: string
           updated_at?: string
+          uploader_id?: string | null
           version?: string
         }
         Update: {
@@ -382,6 +466,7 @@ export type Database = {
           changelog?: string | null
           created_at?: string
           credit_cost?: number
+          dependencies?: string[]
           description?: string
           download_count?: number
           external_url?: string | null
@@ -397,6 +482,7 @@ export type Database = {
           thumbnail_url?: string | null
           title?: string
           updated_at?: string
+          uploader_id?: string | null
           version?: string
         }
         Relationships: [
