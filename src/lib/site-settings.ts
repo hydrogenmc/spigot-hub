@@ -30,16 +30,16 @@ export type SiteSettings = {
 export const defaultSettings: Required<Omit<SiteSettings, "payment" | "limits" | "credits">> = {
   hero: {
     title: "CubynDev",
-    subtitle: "The Ultimate Minecraft Resource Library",
+    subtitle: "Premium Minecraft resources, priced for everyone",
     description:
-      "A modern platform where Minecraft server owners and developers can discover and download plugins, skripts, configurations, maps, setups, and more.",
-    primaryCta: "Browse Resources",
-    secondaryCta: "Latest Uploads",
+      "A curated library of high-quality Minecraft plugins, skripts, configs, maps and server setups. Free tier for the community, and an affordable VIP membership starting at just ₱99/month for unlimited access to premium releases.",
+    primaryCta: "Browse Free Resources",
+    secondaryCta: "See VIP Membership",
   },
   about: {
     title: "About CubynDev",
-    body: "CubynDev is a community-driven hub for Minecraft creators.",
+    body: "CubynDev is a modern Minecraft resource platform built by developers for developers. Everything essential is free — plugins, skripts, configs, and setups. Our low-cost VIP membership unlocks premium, production-ready releases so studios and hobbyists can ship faster without breaking the bank.",
   },
   contact: { email: "contact@cubyndev.dev", discord: "", twitter: "", github: "" },
-  footer: { tagline: "Premium Minecraft resources for the community." },
+  footer: { tagline: "Premium Minecraft resources. Free for the community, affordable for pros." },
 };
