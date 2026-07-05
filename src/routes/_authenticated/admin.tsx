@@ -438,13 +438,6 @@ function ResourceEditor({ data, setData, categories, onSave, onCancel, busy }: {
           </select>
           <p className="mt-1 text-[11px] text-muted-foreground">Free: any signed-in user can download. VIP: requires an active VIP membership.</p>
         </Field>
-        <Field label={`Credit cost ${tier === "credit" ? "(required, min 1)" : "(only for Paid tier)"}`}>
-          <input type="number" min={tier === "credit" ? 1 : 0} step={1} disabled={tier !== "credit"}
-            value={Number(data.credit_cost ?? 0)}
-            onChange={(e) => update("credit_cost", Math.max(0, Math.floor(Number(e.target.value) || 0)))}
-            className={`${inp} disabled:opacity-50 ${errors.credit_cost ? "ring-destructive" : ""}`} />
-          {errors.credit_cost && <p className="mt-1 text-[11px] text-destructive">{errors.credit_cost}</p>}
-        </Field>
         <div className="flex items-center gap-6 sm:col-span-2">
           <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={!!data.featured} onChange={(e) => update("featured", e.target.checked)} /> Featured</label>
           <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={!!data.published} onChange={(e) => update("published", e.target.checked)} /> Published</label>
@@ -466,6 +459,34 @@ function ResourceEditor({ data, setData, categories, onSave, onCancel, busy }: {
 const inp = "w-full rounded-lg bg-input/60 px-3 py-2 text-sm text-foreground outline-none ring-1 ring-border/60 focus:ring-primary";
 function Field({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
   return <label className={`block ${className}`}><span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</span><div className="mt-1.5">{children}</div></label>;
+}
+
+/**
+ * Comma-tokenised text input. Keeps a raw text buffer while typing (so commas
+ * and trailing spaces never disappear) and syncs the parsed array on blur or
+ * when the user presses Enter/Tab.
+ */
+function TokenInput({ value, onChange, placeholder }: { value: string[]; onChange: (v: string[]) => void; placeholder?: string }) {
+  const initial = Array.isArray(value) ? value.join(", ") : "";
+  const [text, setText] = useState(initial);
+  const [focused, setFocused] = useState(false);
+  // Re-sync from prop when not actively editing (e.g. form reset)
+  const display = focused ? text : (Array.isArray(value) ? value.join(", ") : "");
+  const commit = (raw: string) => {
+    const arr = raw.split(",").map((s) => s.trim()).filter(Boolean);
+    onChange(arr);
+  };
+  return (
+    <input
+      value={display}
+      onFocus={() => { setText(Array.isArray(value) ? value.join(", ") : ""); setFocused(true); }}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => { setFocused(false); commit(text); }}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Tab") { commit(text); } }}
+      placeholder={placeholder}
+      className={inp}
+    />
+  );
 }
 
 function CategoriesTab() {
