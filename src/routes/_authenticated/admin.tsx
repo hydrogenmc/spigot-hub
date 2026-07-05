@@ -142,10 +142,9 @@ function ResourcesTab() {
 
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null);
   const [q, setQ] = useState("");
-  const [tierFilter, setTierFilter] = useState<"all" | "free" | "credit" | "vip">("all");
+  const [tierFilter, setTierFilter] = useState<"all" | "free" | "vip">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft">("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [bulkCost, setBulkCost] = useState(5);
 
   const resources = useQuery({ queryKey: ["admin-resources"], queryFn: () => list() });
   const categories = useQuery({ queryKey: ["categories-admin"], queryFn: () => cats() });
@@ -161,7 +160,7 @@ function ResourcesTab() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Delete failed"),
   });
   const bulkMut = useMutation({
-    mutationFn: (v: { ids: string[]; access_tier: "free" | "credit" | "vip"; credit_cost?: number }) => bulkTier({ data: v }),
+    mutationFn: (v: { ids: string[]; access_tier: "free" | "vip" }) => bulkTier({ data: v }),
     onSuccess: (r) => { toast.success(`Updated ${r.count} resource(s)`); setSelected(new Set()); qc.invalidateQueries({ queryKey: ["admin-resources"] }); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Bulk update failed"),
   });
@@ -238,21 +237,20 @@ function ResourcesTab() {
     if (next.has(id)) next.delete(id); else next.add(id);
     setSelected(next);
   };
-  const applyBulk = (tier: "free" | "credit" | "vip") => {
+  const applyBulk = (tier: "free" | "vip") => {
     if (selected.size === 0) return toast.error("Select resources first");
-    bulkMut.mutate({ ids: Array.from(selected), access_tier: tier, credit_cost: tier === "credit" ? bulkCost : undefined });
+    bulkMut.mutate({ ids: Array.from(selected), access_tier: tier });
   };
 
-  const counts = { free: 0, credit: 0, vip: 0 };
-  all.forEach((r) => { const t = (r as { access_tier?: string }).access_tier ?? "free"; counts[t as keyof typeof counts]++; });
+  const counts = { free: 0, vip: 0 };
+  all.forEach((r) => { const t = (r as { access_tier?: string }).access_tier ?? "free"; if (t === "vip") counts.vip++; else counts.free++; });
 
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span>{all.length} total</span>
-          <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-emerald-400">{counts.free} free</span>
-          <span className="rounded bg-primary/15 px-1.5 py-0.5 text-primary">{counts.credit} credit</span>
+          <span className="rounded bg-primary/15 px-1.5 py-0.5 text-primary">{counts.free} free</span>
           <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-400">{counts.vip} vip</span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -262,8 +260,8 @@ function ResourcesTab() {
               onChange={(e) => { const f = e.target.files?.[0]; if (f) onCsvFile(f); e.target.value = ""; }} />
           </label>
           <a
-            href={"data:text/csv;charset=utf-8," + encodeURIComponent("slug,access_tier,credit_cost\nexample-plugin,free,0\nanother-plugin,credit,5\nvip-plugin,vip,0\n")}
-            download="cubyn-tiers-template.csv"
+            href={"data:text/csv;charset=utf-8," + encodeURIComponent("slug,access_tier\nexample-plugin,free\nvip-plugin,vip\n")}
+            download="cubyndev-tiers-template.csv"
             className="text-xs text-muted-foreground hover:text-primary">Template</a>
           <button onClick={blank} className="btn-glow hover:btn-glow-hover inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm"><Plus size={14} /> New resource</button>
         </div>
@@ -277,7 +275,6 @@ function ResourcesTab() {
           className="rounded-lg bg-input/60 px-3 py-2 text-sm ring-1 ring-border/60 focus:ring-primary">
           <option value="all">All tiers</option>
           <option value="free">Free only</option>
-          <option value="credit">Credit only</option>
           <option value="vip">VIP only</option>
         </select>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
@@ -293,14 +290,7 @@ function ResourcesTab() {
         <div className="glass-strong mt-4 flex flex-wrap items-center gap-2 rounded-xl p-3 text-sm">
           <span className="font-medium">{selected.size} selected · set tier to:</span>
           <button onClick={() => applyBulk("free")} disabled={bulkMut.isPending}
-            className="rounded-lg bg-emerald-500/20 px-3 py-1.5 text-xs font-medium text-emerald-400 hover:bg-emerald-500/30 disabled:opacity-50">Free</button>
-          <div className="inline-flex items-center gap-1 rounded-lg bg-primary/20 px-2 py-1">
-            <button onClick={() => applyBulk("credit")} disabled={bulkMut.isPending}
-              className="text-xs font-medium text-primary hover:underline disabled:opacity-50">Paid Credits</button>
-            <input type="number" min={1} value={bulkCost} onChange={(e) => setBulkCost(Number(e.target.value))}
-              className="ml-1 w-14 rounded bg-input/60 px-1.5 py-0.5 text-xs ring-1 ring-border/60" />
-            <span className="text-[10px] text-primary/70">cr</span>
-          </div>
+            className="rounded-lg bg-primary/20 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/30 disabled:opacity-50">Free</button>
           <button onClick={() => applyBulk("vip")} disabled={bulkMut.isPending}
             className="rounded-lg bg-amber-500/20 px-3 py-1.5 text-xs font-medium text-amber-400 hover:bg-amber-500/30 disabled:opacity-50">VIP only</button>
           <button onClick={() => setSelected(new Set())} className="ml-auto text-xs text-muted-foreground hover:text-foreground">Clear</button>
@@ -329,9 +319,9 @@ function ResourcesTab() {
                   <td className="px-4 py-3 text-muted-foreground">{r.version}</td>
                   <td className="px-4 py-3 text-muted-foreground">{r.download_count}</td>
                   <td className="px-4 py-3">
-                    {(() => { const t = (r as { access_tier?: string }).access_tier ?? "free"; const cc = (r as { credit_cost?: number }).credit_cost ?? 0;
-                      const cls = t === "vip" ? "bg-amber-500/15 text-amber-400" : t === "credit" ? "bg-primary/15 text-primary" : "bg-emerald-500/15 text-emerald-400";
-                      const label = t === "vip" ? "VIP" : t === "credit" ? `${cc} CR` : "FREE";
+                    {(() => { const t = (r as { access_tier?: string }).access_tier ?? "free";
+                      const cls = t === "vip" ? "bg-amber-500/15 text-amber-400" : "bg-primary/15 text-primary";
+                      const label = t === "vip" ? "VIP" : "FREE";
                       return <span className={`mr-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${cls}`}>{label}</span>;
                     })()}
                     {r.featured && <span className="mr-1 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">FEATURED</span>}
