@@ -353,20 +353,13 @@ function ResourceEditor({ data, setData, categories, onSave, onCancel, busy }: {
   const update = (k: string, v: unknown) => setData({ ...data, [k]: v });
 
   const tier = String(data.access_tier ?? "free");
-  const costNum = Number(data.credit_cost ?? 0);
   const errors: Record<string, string> = {};
   if (!String(data.title ?? "").trim()) errors.title = "Title is required";
   if (!/^[a-z0-9-]+$/i.test(String(data.slug ?? ""))) errors.slug = "Slug must be letters, numbers, or dashes";
   if (!String(data.version ?? "").trim()) errors.version = "Version is required";
   if (!String(data.mc_version ?? "").trim()) errors.mc_version = "MC Version is required";
   if (!String(data.author ?? "").trim()) errors.author = "Author is required";
-  if (!["free", "credit", "vip"].includes(tier)) errors.access_tier = "Pick a valid tier";
-  if (tier === "credit") {
-    if (!Number.isFinite(costNum) || Number.isNaN(costNum)) errors.credit_cost = "Credit cost must be a number";
-    else if (!Number.isInteger(costNum)) errors.credit_cost = "Credit cost must be a whole number";
-    else if (costNum < 1) errors.credit_cost = "Paid tier requires at least 1 credit";
-    else if (costNum > 10000) errors.credit_cost = "Credit cost must be 10000 or less";
-  }
+  if (!["free", "vip"].includes(tier)) errors.access_tier = "Pick a valid tier";
   if (!String(data.file_url ?? "").trim() && !String(data.external_url ?? "").trim()) {
     errors.file_url = "Upload a file or provide an external URL";
   }
@@ -376,7 +369,7 @@ function ResourceEditor({ data, setData, categories, onSave, onCancel, busy }: {
       toast.error(Object.values(errors)[0]);
       return;
     }
-    const payload = { ...data, access_tier: tier, credit_cost: tier === "credit" ? Math.max(1, Math.floor(costNum)) : 0 };
+    const payload = { ...data, access_tier: tier, credit_cost: 0 };
     onSave(payload);
   };
 
@@ -432,21 +425,18 @@ function ResourceEditor({ data, setData, categories, onSave, onCancel, busy }: {
         </Field>
         <Field label="External URL (optional)" className="sm:col-span-2"><input value={String(data.external_url ?? "")} onChange={(e) => update("external_url", e.target.value)} className={inp} /></Field>
         <Field label="Tags (comma separated)" className="sm:col-span-2">
-          <input value={Array.isArray(data.tags) ? (data.tags as string[]).join(", ") : ""}
-            onChange={(e) => update("tags", e.target.value.split(",").map(s => s.trim()).filter(Boolean))} className={inp} />
+          <TokenInput value={(data.tags as string[]) ?? []} onChange={(v) => update("tags", v)} placeholder="pvp, economy, gui" />
         </Field>
         <Field label="Dependencies (comma separated — e.g. Vault, PlaceholderAPI)" className="sm:col-span-2">
-          <input value={Array.isArray(data.dependencies) ? (data.dependencies as string[]).join(", ") : ""}
-            onChange={(e) => update("dependencies", e.target.value.split(",").map(s => s.trim()).filter(Boolean))} className={inp} placeholder="Vault, PlaceholderAPI" />
+          <TokenInput value={(data.dependencies as string[]) ?? []} onChange={(v) => update("dependencies", v)} placeholder="Vault, PlaceholderAPI" />
         </Field>
         <Field label="Changelog" className="sm:col-span-2"><RichTextEditor value={String(data.changelog ?? "")} onChange={(v) => update("changelog", v)} rows={4} placeholder="What changed in this version?" /></Field>
-        <Field label="Access tier">
-          <select value={tier} onChange={(e) => { const t = e.target.value; update("access_tier", t); if (t === "credit" && (!data.credit_cost || Number(data.credit_cost) < 1)) update("credit_cost", 1); if (t !== "credit") update("credit_cost", 0); }} className={inp}>
+        <Field label="Access tier" className="sm:col-span-2">
+          <select value={tier} onChange={(e) => { update("access_tier", e.target.value); update("credit_cost", 0); }} className={inp}>
             <option value="free">Free — anyone signed in</option>
-            <option value="credit">Paid (Credits)</option>
             <option value="vip">VIP only</option>
           </select>
-          <p className="mt-1 text-[11px] text-muted-foreground">Free: any signed-in user. Paid: costs credits. VIP: requires active VIP.</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">Free: any signed-in user can download. VIP: requires an active VIP membership.</p>
         </Field>
         <Field label={`Credit cost ${tier === "credit" ? "(required, min 1)" : "(only for Paid tier)"}`}>
           <input type="number" min={tier === "credit" ? 1 : 0} step={1} disabled={tier !== "credit"}
