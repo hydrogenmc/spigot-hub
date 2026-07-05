@@ -15,7 +15,7 @@ const searchSchema = z.object({
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (s) => searchSchema.parse(s),
-  head: () => ({ meta: [{ title: "Sign in — Cubyn Spigot" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "Sign in — CubynDev" }, { name: "robots", content: "noindex" }] }),
   component: AuthPage,
 });
 

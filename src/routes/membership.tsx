@@ -22,7 +22,7 @@ const planQuery = queryOptions({
 
 export const Route = createFileRoute("/membership")({
   head: () => ({ meta: [
-    { title: "VIP Membership — Cubyn Spigot" },
+    { title: "VIP Membership — CubynDev" },
     { name: "description", content: "Upgrade to VIP for unlimited downloads, exclusive resources, and priority access." },
   ] }),
   loader: ({ context }) => context.queryClient.ensureQueryData(planQuery),

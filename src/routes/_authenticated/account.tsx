@@ -11,7 +11,7 @@ import { getMyLedger } from "@/lib/credits.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/account")({
-  head: () => ({ meta: [{ title: "My Account — Cubyn Spigot" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "My Account — CubynDev" }, { name: "robots", content: "noindex" }] }),
   component: AccountPage,
 });
 

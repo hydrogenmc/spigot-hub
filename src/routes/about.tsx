@@ -8,7 +8,7 @@ import { defaultSettings, type SiteSettings } from "@/lib/site-settings";
 const q = queryOptions({ queryKey: ["settings"], queryFn: async () => (await getSettings()) as SiteSettings });
 
 export const Route = createFileRoute("/about")({
-  head: () => ({ meta: [{ title: "About — Cubyn Spigot" }, { name: "description", content: "About Cubyn Spigot" }] }),
+  head: () => ({ meta: [{ title: "About — CubynDev" }, { name: "description", content: "About CubynDev" }] }),
   loader: ({ context }) => context.queryClient.ensureQueryData(q),
   component: AboutPage,
 });

@@ -22,7 +22,7 @@ import { adminListAuditLogs, adminQuickUpdateResource } from "@/lib/audit.functi
 import { getSettings } from "@/lib/resources.functions";
 
 export const Route = createFileRoute("/_authenticated/admin")({
-  head: () => ({ meta: [{ title: "Admin Dashboard — Cubyn Spigot" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "Admin Dashboard — CubynDev" }, { name: "robots", content: "noindex" }] }),
   component: AdminPage,
 });
 
@@ -80,21 +80,35 @@ function AdminPage() {
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <h1 className="font-display text-3xl font-bold">Admin <span className="text-gradient">Dashboard</span></h1>
 
-        <div className="glass mt-6 inline-flex flex-wrap gap-1 rounded-xl p-1">
+        <div className="glass mt-6 flex flex-wrap items-center gap-4 rounded-xl p-2">
           {[
-            { id: "resources" as const, icon: Package, label: "Resources" },
-            { id: "categories" as const, icon: FolderTree, label: "Categories" },
-            { id: "users" as const, icon: UsersIcon, label: "Users" },
-            { id: "plans" as const, icon: Crown, label: "Plans" },
-            { id: "payments" as const, icon: Receipt, label: "Payments" },
-            { id: "memberships" as const, icon: Crown, label: "Memberships" },
-            { id: "audit" as const, icon: ShieldCheck, label: "Audit" },
-            { id: "settings" as const, icon: Cog, label: "Settings" },
-          ].map((t) => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition ${tab === t.id ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
-              <t.icon size={14} /> {t.label}
-            </button>
+            { group: "Content", tabs: [
+              { id: "resources" as const, icon: Package, label: "Resources" },
+              { id: "categories" as const, icon: FolderTree, label: "Categories" },
+            ]},
+            { group: "Community", tabs: [
+              { id: "users" as const, icon: UsersIcon, label: "Users" },
+              { id: "memberships" as const, icon: Crown, label: "Memberships" },
+            ]},
+            { group: "Billing", tabs: [
+              { id: "plans" as const, icon: Crown, label: "Plans" },
+              { id: "payments" as const, icon: Receipt, label: "Payments" },
+            ]},
+            { group: "System", tabs: [
+              { id: "audit" as const, icon: ShieldCheck, label: "Audit" },
+              { id: "settings" as const, icon: Cog, label: "Settings" },
+            ]},
+          ].map((section) => (
+            <div key={section.group} className="flex items-center gap-1">
+              <span className="hidden pl-2 pr-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground sm:inline">{section.group}</span>
+              {section.tabs.map((t) => (
+                <button key={t.id} onClick={() => setTab(t.id)}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition ${tab === t.id ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+                  <t.icon size={14} /> {t.label}
+                </button>
+              ))}
+              <span className="mx-1 hidden h-5 w-px bg-border/60 last:hidden md:inline-block" />
+            </div>
           ))}
         </div>
 
@@ -128,10 +142,9 @@ function ResourcesTab() {
 
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null);
   const [q, setQ] = useState("");
-  const [tierFilter, setTierFilter] = useState<"all" | "free" | "credit" | "vip">("all");
+  const [tierFilter, setTierFilter] = useState<"all" | "free" | "vip">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft">("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [bulkCost, setBulkCost] = useState(5);
 
   const resources = useQuery({ queryKey: ["admin-resources"], queryFn: () => list() });
   const categories = useQuery({ queryKey: ["categories-admin"], queryFn: () => cats() });
@@ -147,7 +160,7 @@ function ResourcesTab() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Delete failed"),
   });
   const bulkMut = useMutation({
-    mutationFn: (v: { ids: string[]; access_tier: "free" | "credit" | "vip"; credit_cost?: number }) => bulkTier({ data: v }),
+    mutationFn: (v: { ids: string[]; access_tier: "free" | "vip" }) => bulkTier({ data: v }),
     onSuccess: (r) => { toast.success(`Updated ${r.count} resource(s)`); setSelected(new Set()); qc.invalidateQueries({ queryKey: ["admin-resources"] }); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Bulk update failed"),
   });
@@ -199,7 +212,7 @@ function ResourcesTab() {
 
   const blank = () => setEditing({
     slug: "", title: "", description: "", long_description: "", version: "1.0.0", mc_version: "1.20+",
-    category_id: categories.data?.[0]?.id ?? null, author: "Cubyn Team", thumbnail_url: "", file_url: "",
+    category_id: categories.data?.[0]?.id ?? null, author: "CubynDev Team", thumbnail_url: "", file_url: "",
     external_url: "", changelog: "", tags: [], dependencies: [], featured: false, published: true,
     access_tier: "free", credit_cost: 0,
   });
@@ -224,21 +237,20 @@ function ResourcesTab() {
     if (next.has(id)) next.delete(id); else next.add(id);
     setSelected(next);
   };
-  const applyBulk = (tier: "free" | "credit" | "vip") => {
+  const applyBulk = (tier: "free" | "vip") => {
     if (selected.size === 0) return toast.error("Select resources first");
-    bulkMut.mutate({ ids: Array.from(selected), access_tier: tier, credit_cost: tier === "credit" ? bulkCost : undefined });
+    bulkMut.mutate({ ids: Array.from(selected), access_tier: tier });
   };
 
-  const counts = { free: 0, credit: 0, vip: 0 };
-  all.forEach((r) => { const t = (r as { access_tier?: string }).access_tier ?? "free"; counts[t as keyof typeof counts]++; });
+  const counts = { free: 0, vip: 0 };
+  all.forEach((r) => { const t = (r as { access_tier?: string }).access_tier ?? "free"; if (t === "vip") counts.vip++; else counts.free++; });
 
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span>{all.length} total</span>
-          <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-emerald-400">{counts.free} free</span>
-          <span className="rounded bg-primary/15 px-1.5 py-0.5 text-primary">{counts.credit} credit</span>
+          <span className="rounded bg-primary/15 px-1.5 py-0.5 text-primary">{counts.free} free</span>
           <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-400">{counts.vip} vip</span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -248,8 +260,8 @@ function ResourcesTab() {
               onChange={(e) => { const f = e.target.files?.[0]; if (f) onCsvFile(f); e.target.value = ""; }} />
           </label>
           <a
-            href={"data:text/csv;charset=utf-8," + encodeURIComponent("slug,access_tier,credit_cost\nexample-plugin,free,0\nanother-plugin,credit,5\nvip-plugin,vip,0\n")}
-            download="cubyn-tiers-template.csv"
+            href={"data:text/csv;charset=utf-8," + encodeURIComponent("slug,access_tier\nexample-plugin,free\nvip-plugin,vip\n")}
+            download="cubyndev-tiers-template.csv"
             className="text-xs text-muted-foreground hover:text-primary">Template</a>
           <button onClick={blank} className="btn-glow hover:btn-glow-hover inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm"><Plus size={14} /> New resource</button>
         </div>
@@ -263,7 +275,6 @@ function ResourcesTab() {
           className="rounded-lg bg-input/60 px-3 py-2 text-sm ring-1 ring-border/60 focus:ring-primary">
           <option value="all">All tiers</option>
           <option value="free">Free only</option>
-          <option value="credit">Credit only</option>
           <option value="vip">VIP only</option>
         </select>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
@@ -279,14 +290,7 @@ function ResourcesTab() {
         <div className="glass-strong mt-4 flex flex-wrap items-center gap-2 rounded-xl p-3 text-sm">
           <span className="font-medium">{selected.size} selected · set tier to:</span>
           <button onClick={() => applyBulk("free")} disabled={bulkMut.isPending}
-            className="rounded-lg bg-emerald-500/20 px-3 py-1.5 text-xs font-medium text-emerald-400 hover:bg-emerald-500/30 disabled:opacity-50">Free</button>
-          <div className="inline-flex items-center gap-1 rounded-lg bg-primary/20 px-2 py-1">
-            <button onClick={() => applyBulk("credit")} disabled={bulkMut.isPending}
-              className="text-xs font-medium text-primary hover:underline disabled:opacity-50">Paid Credits</button>
-            <input type="number" min={1} value={bulkCost} onChange={(e) => setBulkCost(Number(e.target.value))}
-              className="ml-1 w-14 rounded bg-input/60 px-1.5 py-0.5 text-xs ring-1 ring-border/60" />
-            <span className="text-[10px] text-primary/70">cr</span>
-          </div>
+            className="rounded-lg bg-primary/20 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/30 disabled:opacity-50">Free</button>
           <button onClick={() => applyBulk("vip")} disabled={bulkMut.isPending}
             className="rounded-lg bg-amber-500/20 px-3 py-1.5 text-xs font-medium text-amber-400 hover:bg-amber-500/30 disabled:opacity-50">VIP only</button>
           <button onClick={() => setSelected(new Set())} className="ml-auto text-xs text-muted-foreground hover:text-foreground">Clear</button>
@@ -315,9 +319,9 @@ function ResourcesTab() {
                   <td className="px-4 py-3 text-muted-foreground">{r.version}</td>
                   <td className="px-4 py-3 text-muted-foreground">{r.download_count}</td>
                   <td className="px-4 py-3">
-                    {(() => { const t = (r as { access_tier?: string }).access_tier ?? "free"; const cc = (r as { credit_cost?: number }).credit_cost ?? 0;
-                      const cls = t === "vip" ? "bg-amber-500/15 text-amber-400" : t === "credit" ? "bg-primary/15 text-primary" : "bg-emerald-500/15 text-emerald-400";
-                      const label = t === "vip" ? "VIP" : t === "credit" ? `${cc} CR` : "FREE";
+                    {(() => { const t = (r as { access_tier?: string }).access_tier ?? "free";
+                      const cls = t === "vip" ? "bg-amber-500/15 text-amber-400" : "bg-primary/15 text-primary";
+                      const label = t === "vip" ? "VIP" : "FREE";
                       return <span className={`mr-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${cls}`}>{label}</span>;
                     })()}
                     {r.featured && <span className="mr-1 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">FEATURED</span>}
@@ -349,20 +353,13 @@ function ResourceEditor({ data, setData, categories, onSave, onCancel, busy }: {
   const update = (k: string, v: unknown) => setData({ ...data, [k]: v });
 
   const tier = String(data.access_tier ?? "free");
-  const costNum = Number(data.credit_cost ?? 0);
   const errors: Record<string, string> = {};
   if (!String(data.title ?? "").trim()) errors.title = "Title is required";
   if (!/^[a-z0-9-]+$/i.test(String(data.slug ?? ""))) errors.slug = "Slug must be letters, numbers, or dashes";
   if (!String(data.version ?? "").trim()) errors.version = "Version is required";
   if (!String(data.mc_version ?? "").trim()) errors.mc_version = "MC Version is required";
   if (!String(data.author ?? "").trim()) errors.author = "Author is required";
-  if (!["free", "credit", "vip"].includes(tier)) errors.access_tier = "Pick a valid tier";
-  if (tier === "credit") {
-    if (!Number.isFinite(costNum) || Number.isNaN(costNum)) errors.credit_cost = "Credit cost must be a number";
-    else if (!Number.isInteger(costNum)) errors.credit_cost = "Credit cost must be a whole number";
-    else if (costNum < 1) errors.credit_cost = "Paid tier requires at least 1 credit";
-    else if (costNum > 10000) errors.credit_cost = "Credit cost must be 10000 or less";
-  }
+  if (!["free", "vip"].includes(tier)) errors.access_tier = "Pick a valid tier";
   if (!String(data.file_url ?? "").trim() && !String(data.external_url ?? "").trim()) {
     errors.file_url = "Upload a file or provide an external URL";
   }
@@ -372,7 +369,7 @@ function ResourceEditor({ data, setData, categories, onSave, onCancel, busy }: {
       toast.error(Object.values(errors)[0]);
       return;
     }
-    const payload = { ...data, access_tier: tier, credit_cost: tier === "credit" ? Math.max(1, Math.floor(costNum)) : 0 };
+    const payload = { ...data, access_tier: tier, credit_cost: 0 };
     onSave(payload);
   };
 
@@ -428,28 +425,18 @@ function ResourceEditor({ data, setData, categories, onSave, onCancel, busy }: {
         </Field>
         <Field label="External URL (optional)" className="sm:col-span-2"><input value={String(data.external_url ?? "")} onChange={(e) => update("external_url", e.target.value)} className={inp} /></Field>
         <Field label="Tags (comma separated)" className="sm:col-span-2">
-          <input value={Array.isArray(data.tags) ? (data.tags as string[]).join(", ") : ""}
-            onChange={(e) => update("tags", e.target.value.split(",").map(s => s.trim()).filter(Boolean))} className={inp} />
+          <TokenInput value={(data.tags as string[]) ?? []} onChange={(v) => update("tags", v)} placeholder="pvp, economy, gui" />
         </Field>
         <Field label="Dependencies (comma separated — e.g. Vault, PlaceholderAPI)" className="sm:col-span-2">
-          <input value={Array.isArray(data.dependencies) ? (data.dependencies as string[]).join(", ") : ""}
-            onChange={(e) => update("dependencies", e.target.value.split(",").map(s => s.trim()).filter(Boolean))} className={inp} placeholder="Vault, PlaceholderAPI" />
+          <TokenInput value={(data.dependencies as string[]) ?? []} onChange={(v) => update("dependencies", v)} placeholder="Vault, PlaceholderAPI" />
         </Field>
         <Field label="Changelog" className="sm:col-span-2"><RichTextEditor value={String(data.changelog ?? "")} onChange={(v) => update("changelog", v)} rows={4} placeholder="What changed in this version?" /></Field>
-        <Field label="Access tier">
-          <select value={tier} onChange={(e) => { const t = e.target.value; update("access_tier", t); if (t === "credit" && (!data.credit_cost || Number(data.credit_cost) < 1)) update("credit_cost", 1); if (t !== "credit") update("credit_cost", 0); }} className={inp}>
+        <Field label="Access tier" className="sm:col-span-2">
+          <select value={tier} onChange={(e) => { update("access_tier", e.target.value); update("credit_cost", 0); }} className={inp}>
             <option value="free">Free — anyone signed in</option>
-            <option value="credit">Paid (Credits)</option>
             <option value="vip">VIP only</option>
           </select>
-          <p className="mt-1 text-[11px] text-muted-foreground">Free: any signed-in user. Paid: costs credits. VIP: requires active VIP.</p>
-        </Field>
-        <Field label={`Credit cost ${tier === "credit" ? "(required, min 1)" : "(only for Paid tier)"}`}>
-          <input type="number" min={tier === "credit" ? 1 : 0} step={1} disabled={tier !== "credit"}
-            value={Number(data.credit_cost ?? 0)}
-            onChange={(e) => update("credit_cost", Math.max(0, Math.floor(Number(e.target.value) || 0)))}
-            className={`${inp} disabled:opacity-50 ${errors.credit_cost ? "ring-destructive" : ""}`} />
-          {errors.credit_cost && <p className="mt-1 text-[11px] text-destructive">{errors.credit_cost}</p>}
+          <p className="mt-1 text-[11px] text-muted-foreground">Free: any signed-in user can download. VIP: requires an active VIP membership.</p>
         </Field>
         <div className="flex items-center gap-6 sm:col-span-2">
           <label className="inline-flex items-center gap-2 text-sm"><input type="checkbox" checked={!!data.featured} onChange={(e) => update("featured", e.target.checked)} /> Featured</label>
@@ -472,6 +459,34 @@ function ResourceEditor({ data, setData, categories, onSave, onCancel, busy }: {
 const inp = "w-full rounded-lg bg-input/60 px-3 py-2 text-sm text-foreground outline-none ring-1 ring-border/60 focus:ring-primary";
 function Field({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
   return <label className={`block ${className}`}><span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</span><div className="mt-1.5">{children}</div></label>;
+}
+
+/**
+ * Comma-tokenised text input. Keeps a raw text buffer while typing (so commas
+ * and trailing spaces never disappear) and syncs the parsed array on blur or
+ * when the user presses Enter/Tab.
+ */
+function TokenInput({ value, onChange, placeholder }: { value: string[]; onChange: (v: string[]) => void; placeholder?: string }) {
+  const initial = Array.isArray(value) ? value.join(", ") : "";
+  const [text, setText] = useState(initial);
+  const [focused, setFocused] = useState(false);
+  // Re-sync from prop when not actively editing (e.g. form reset)
+  const display = focused ? text : (Array.isArray(value) ? value.join(", ") : "");
+  const commit = (raw: string) => {
+    const arr = raw.split(",").map((s) => s.trim()).filter(Boolean);
+    onChange(arr);
+  };
+  return (
+    <input
+      value={display}
+      onFocus={() => { setText(Array.isArray(value) ? value.join(", ") : ""); setFocused(true); }}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => { setFocused(false); commit(text); }}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Tab") { commit(text); } }}
+      placeholder={placeholder}
+      className={inp}
+    />
+  );
 }
 
 function CategoriesTab() {

@@ -27,7 +27,7 @@ export const Route = createFileRoute("/resources/$slug")({
     const r = (loaderData as { resource?: { title?: string; description?: string; thumbnail_url?: string | null } } | undefined)?.resource;
     return {
       meta: [
-        { title: `${r?.title ?? "Resource"} — Cubyn Spigot` },
+        { title: `${r?.title ?? "Resource"} — CubynDev` },
         { name: "description", content: r?.description ?? "Minecraft resource" },
         { property: "og:title", content: r?.title ?? "Resource" },
         { property: "og:description", content: r?.description ?? "" },

@@ -35,7 +35,7 @@ export function SiteFooter({ settings }: { settings?: SiteSettings }) {
           </div>
         </div>
         <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-border/50 pt-6 text-xs text-muted-foreground sm:flex-row">
-          <p>© 2026 Cubyn Spigot. All Rights Reserved.</p>
+          <p>© 2026 CubynDev. All Rights Reserved.</p>
           <p>Built for the Minecraft community.</p>
         </div>
       </div>
