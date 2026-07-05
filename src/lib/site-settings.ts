@@ -29,7 +29,7 @@ export type SiteSettings = {
 
 export const defaultSettings: Required<Omit<SiteSettings, "payment" | "limits" | "credits">> = {
   hero: {
-    title: "Cubyn Spigot",
+    title: "CubynDev",
     subtitle: "The Ultimate Minecraft Resource Library",
     description:
       "A modern platform where Minecraft server owners and developers can discover and download plugins, skripts, configurations, maps, setups, and more.",
@@ -37,9 +37,9 @@ export const defaultSettings: Required<Omit<SiteSettings, "payment" | "limits" |
     secondaryCta: "Latest Uploads",
   },
   about: {
-    title: "About Cubyn Spigot",
-    body: "Cubyn Spigot is a community-driven hub for Minecraft creators.",
+    title: "About CubynDev",
+    body: "CubynDev is a community-driven hub for Minecraft creators.",
   },
-  contact: { email: "contact@cubynspigot.dev", discord: "", twitter: "", github: "" },
+  contact: { email: "contact@cubyndev.dev", discord: "", twitter: "", github: "" },
   footer: { tagline: "Premium Minecraft resources for the community." },
 };

@@ -7,7 +7,7 @@ interface LogoProps {
 export function Logo({ size = 32, showText = true, className = "" }: LogoProps) {
   return (
     <div className={`flex items-center gap-2.5 ${className}`}>
-      <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Cubyn Spigot logo">
+      <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="CubynDev logo">
         <defs>
           <linearGradient id="cubyn-grad" x1="0" y1="0" x2="48" y2="48">
             <stop offset="0%" stopColor="oklch(0.92 0.12 200)" />

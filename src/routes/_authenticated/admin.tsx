@@ -22,7 +22,7 @@ import { adminListAuditLogs, adminQuickUpdateResource } from "@/lib/audit.functi
 import { getSettings } from "@/lib/resources.functions";
 
 export const Route = createFileRoute("/_authenticated/admin")({
-  head: () => ({ meta: [{ title: "Admin Dashboard — Cubyn Spigot" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "Admin Dashboard — CubynDev" }, { name: "robots", content: "noindex" }] }),
   component: AdminPage,
 });
 
@@ -199,7 +199,7 @@ function ResourcesTab() {
 
   const blank = () => setEditing({
     slug: "", title: "", description: "", long_description: "", version: "1.0.0", mc_version: "1.20+",
-    category_id: categories.data?.[0]?.id ?? null, author: "Cubyn Team", thumbnail_url: "", file_url: "",
+    category_id: categories.data?.[0]?.id ?? null, author: "CubynDev Team", thumbnail_url: "", file_url: "",
     external_url: "", changelog: "", tags: [], dependencies: [], featured: false, published: true,
     access_tier: "free", credit_cost: 0,
   });

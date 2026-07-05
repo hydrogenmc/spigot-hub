@@ -15,7 +15,7 @@ const q = queryOptions({
 });
 
 export const Route = createFileRoute("/categories")({
-  head: () => ({ meta: [{ title: "Categories — Cubyn Spigot" }, { name: "description", content: "Browse Minecraft resources by category." }] }),
+  head: () => ({ meta: [{ title: "Categories — CubynDev" }, { name: "description", content: "Browse Minecraft resources by category." }] }),
   loader: ({ context }) => context.queryClient.ensureQueryData(q),
   component: CategoriesPage,
 });

@@ -14,7 +14,7 @@ const lbQuery = queryOptions({
 
 export const Route = createFileRoute("/leaderboard")({
   head: () => ({ meta: [
-    { title: "Credits Leaderboard — Cubyn Spigot" },
+    { title: "Credits Leaderboard — CubynDev" },
     { name: "description", content: "Top members ranked by Cubyn Credits earned from activity and bonuses." },
   ] }),
   loader: ({ context }) => context.queryClient.ensureQueryData(lbQuery),

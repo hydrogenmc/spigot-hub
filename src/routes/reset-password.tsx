@@ -8,7 +8,7 @@ import { Logo } from "@/components/Logo";
 import { Particles } from "@/components/Particles";
 
 export const Route = createFileRoute("/reset-password")({
-  head: () => ({ meta: [{ title: "Reset password — Cubyn Spigot" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "Reset password — CubynDev" }, { name: "robots", content: "noindex" }] }),
   component: ResetPasswordPage,
 });
 

@@ -25,9 +25,9 @@ const homeQuery = queryOptions({
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Cubyn Spigot — The Ultimate Minecraft Resource Library" },
+      { title: "CubynDev — The Ultimate Minecraft Resource Library" },
       { name: "description", content: "Discover and download free Minecraft plugins, skripts, configs, maps and more. Instant downloads, no account required." },
-      { property: "og:title", content: "Cubyn Spigot" },
+      { property: "og:title", content: "CubynDev" },
       { property: "og:description", content: "Free premium Minecraft resources." },
     ],
   }),
