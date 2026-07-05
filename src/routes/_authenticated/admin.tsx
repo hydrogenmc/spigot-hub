@@ -80,21 +80,35 @@ function AdminPage() {
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <h1 className="font-display text-3xl font-bold">Admin <span className="text-gradient">Dashboard</span></h1>
 
-        <div className="glass mt-6 inline-flex flex-wrap gap-1 rounded-xl p-1">
+        <div className="glass mt-6 flex flex-wrap items-center gap-4 rounded-xl p-2">
           {[
-            { id: "resources" as const, icon: Package, label: "Resources" },
-            { id: "categories" as const, icon: FolderTree, label: "Categories" },
-            { id: "users" as const, icon: UsersIcon, label: "Users" },
-            { id: "plans" as const, icon: Crown, label: "Plans" },
-            { id: "payments" as const, icon: Receipt, label: "Payments" },
-            { id: "memberships" as const, icon: Crown, label: "Memberships" },
-            { id: "audit" as const, icon: ShieldCheck, label: "Audit" },
-            { id: "settings" as const, icon: Cog, label: "Settings" },
-          ].map((t) => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition ${tab === t.id ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
-              <t.icon size={14} /> {t.label}
-            </button>
+            { group: "Content", tabs: [
+              { id: "resources" as const, icon: Package, label: "Resources" },
+              { id: "categories" as const, icon: FolderTree, label: "Categories" },
+            ]},
+            { group: "Community", tabs: [
+              { id: "users" as const, icon: UsersIcon, label: "Users" },
+              { id: "memberships" as const, icon: Crown, label: "Memberships" },
+            ]},
+            { group: "Billing", tabs: [
+              { id: "plans" as const, icon: Crown, label: "Plans" },
+              { id: "payments" as const, icon: Receipt, label: "Payments" },
+            ]},
+            { group: "System", tabs: [
+              { id: "audit" as const, icon: ShieldCheck, label: "Audit" },
+              { id: "settings" as const, icon: Cog, label: "Settings" },
+            ]},
+          ].map((section) => (
+            <div key={section.group} className="flex items-center gap-1">
+              <span className="hidden pl-2 pr-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground sm:inline">{section.group}</span>
+              {section.tabs.map((t) => (
+                <button key={t.id} onClick={() => setTab(t.id)}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition ${tab === t.id ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+                  <t.icon size={14} /> {t.label}
+                </button>
+              ))}
+              <span className="mx-1 hidden h-5 w-px bg-border/60 last:hidden md:inline-block" />
+            </div>
           ))}
         </div>
 
