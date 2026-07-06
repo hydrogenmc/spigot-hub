@@ -35,6 +35,16 @@ function AdminPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>("resources");
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const v = window.localStorage.getItem("admin-sidebar-open");
+    return v == null ? true : v === "1";
+  });
+  const toggleSidebar = () => setSidebarOpen((v) => {
+    const nv = !v;
+    try { window.localStorage.setItem("admin-sidebar-open", nv ? "1" : "0"); } catch { /* ignore */ }
+    return nv;
+  });
 
   const check = useServerFn(adminCheck);
   const promote = useServerFn(adminPromoteSelf);
@@ -48,12 +58,18 @@ function AdminPage() {
   };
 
   if (status.isLoading) return <FullPage>Loading…</FullPage>;
-  if (!status.data?.isAdmin) {
+  const roles = status.data?.roles ?? [];
+  const isAdmin = !!status.data?.isAdmin;
+  const isEditor = isAdmin || roles.includes("editor");
+  const isBilling = isAdmin || roles.includes("billing");
+  const canAccess = isAdmin || isEditor || isBilling;
+
+  if (!canAccess) {
     return (
       <FullPage>
         <div className="glass-strong w-full max-w-md rounded-3xl p-8 text-center">
           <Logo size={36} />
-          <h1 className="mt-6 font-display text-xl font-bold">Not an admin yet</h1>
+          <h1 className="mt-6 font-display text-xl font-bold">No admin access</h1>
           <p className="mt-2 text-sm text-muted-foreground">If you're the first user, claim the admin role now.</p>
           <button onClick={async () => { try { await promote(); toast.success("You're now an admin"); status.refetch(); } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); } }}
             className="btn-glow hover:btn-glow-hover mt-6 w-full rounded-lg px-4 py-2.5 text-sm">
@@ -65,12 +81,45 @@ function AdminPage() {
     );
   }
 
+  const sections: Array<{ group: string; tabs: Array<{ id: Tab; icon: typeof Package; label: string; show: boolean }> }> = [
+    { group: "Content", tabs: [
+      { id: "resources", icon: Package, label: "Resources", show: isEditor },
+      { id: "categories", icon: FolderTree, label: "Categories", show: isEditor },
+    ]},
+    { group: "Community", tabs: [
+      { id: "users", icon: UsersIcon, label: "Team & Users", show: isAdmin },
+      { id: "memberships", icon: Crown, label: "Memberships", show: isBilling },
+    ]},
+    { group: "Billing", tabs: [
+      { id: "plans", icon: Crown, label: "Plans", show: isBilling },
+      { id: "payments", icon: Receipt, label: "Payments", show: isBilling },
+    ]},
+    { group: "System", tabs: [
+      { id: "audit", icon: ShieldCheck, label: "Audit Log", show: isAdmin || isEditor },
+      { id: "settings", icon: Cog, label: "Settings", show: isAdmin },
+    ]},
+  ];
+
+  const allowedTabs = sections.flatMap((s) => s.tabs).filter((t) => t.show).map((t) => t.id);
+  const activeTab: Tab = allowedTabs.includes(tab) ? tab : (allowedTabs[0] ?? "resources");
+
   return (
     <div className="min-h-screen">
       <header className="glass-strong sticky top-0 z-40 border-b border-border/50">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <Link to="/"><Logo /></Link>
           <div className="flex items-center gap-2">
+            <button
+              onClick={toggleSidebar}
+              aria-label="Toggle sidebar"
+              className="rounded-lg border border-border/60 p-2 text-foreground hover:bg-secondary">
+              <Menu size={18} />
+            </button>
+            <Link to="/"><Logo /></Link>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="hidden text-xs text-muted-foreground sm:inline">
+              {isAdmin ? "Admin" : roles.filter((r) => ["editor","billing"].includes(r)).join(" · ") || "Staff"}
+            </span>
             <Link to="/" className="text-sm text-muted-foreground hover:text-primary">View site</Link>
             <button onClick={signOut} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-secondary">
               <LogOut size={14} /> Sign out
@@ -79,55 +128,57 @@ function AdminPage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        <h1 className="font-display text-3xl font-bold">Admin <span className="text-gradient">Dashboard</span></h1>
+      {/* Backdrop for mobile drawer */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 top-16 z-20 bg-black/50 lg:hidden" onClick={toggleSidebar} />
+      )}
 
-        <div className="glass mt-6 flex flex-wrap items-center gap-4 rounded-xl p-2">
-          {[
-            { group: "Content", tabs: [
-              { id: "resources" as const, icon: Package, label: "Resources" },
-              { id: "categories" as const, icon: FolderTree, label: "Categories" },
-            ]},
-            { group: "Community", tabs: [
-              { id: "users" as const, icon: UsersIcon, label: "Users" },
-              { id: "memberships" as const, icon: Crown, label: "Memberships" },
-            ]},
-            { group: "Billing", tabs: [
-              { id: "plans" as const, icon: Crown, label: "Plans" },
-              { id: "payments" as const, icon: Receipt, label: "Payments" },
-            ]},
-            { group: "System", tabs: [
-              { id: "audit" as const, icon: ShieldCheck, label: "Audit" },
-              { id: "settings" as const, icon: Cog, label: "Settings" },
-            ]},
-          ].map((section) => (
-            <div key={section.group} className="flex items-center gap-1">
-              <span className="hidden pl-2 pr-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground sm:inline">{section.group}</span>
-              {section.tabs.map((t) => (
-                <button key={t.id} onClick={() => setTab(t.id)}
-                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition ${tab === t.id ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
-                  <t.icon size={14} /> {t.label}
-                </button>
-              ))}
-              <span className="mx-1 hidden h-5 w-px bg-border/60 last:hidden md:inline-block" />
-            </div>
-          ))}
-        </div>
+      <div className="mx-auto flex max-w-7xl">
+        <aside
+          className={`fixed left-0 top-16 z-30 h-[calc(100vh-4rem)] w-64 shrink-0 overflow-y-auto border-r border-border/50 bg-background/95 backdrop-blur transition-transform duration-200 lg:sticky lg:top-16 lg:z-10 lg:bg-transparent lg:backdrop-blur-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+        >
+          <nav className="space-y-6 p-4">
+            {sections.map((section) => {
+              const visible = section.tabs.filter((t) => t.show);
+              if (visible.length === 0) return null;
+              return (
+                <div key={section.group}>
+                  <div className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{section.group}</div>
+                  <div className="space-y-1">
+                    {visible.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => { setTab(t.id); if (window.innerWidth < 1024) setSidebarOpen(false); }}
+                        className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition ${activeTab === t.id ? "bg-primary/20 text-primary" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"}`}>
+                        <t.icon size={15} /> {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </nav>
+        </aside>
 
-        <div className="mt-6">
-          {tab === "resources" && <ResourcesTab />}
-          {tab === "categories" && <CategoriesTab />}
-          {tab === "users" && <UsersTab />}
-          {tab === "plans" && <PlansTab />}
-          {tab === "payments" && <PaymentsTab />}
-          {tab === "memberships" && <MembershipsTab />}
-          {tab === "audit" && <AuditTab />}
-          {tab === "settings" && <SettingsTab />}
-        </div>
+        <main className={`flex-1 px-4 py-8 sm:px-6 ${sidebarOpen ? "lg:ml-0" : ""}`}>
+          <h1 className="font-display text-3xl font-bold">Admin <span className="text-gradient">Dashboard</span></h1>
+
+          <div className="mt-6">
+            {activeTab === "resources" && isEditor && <ResourcesTab />}
+            {activeTab === "categories" && isEditor && <CategoriesTab />}
+            {activeTab === "users" && isAdmin && <UsersTab />}
+            {activeTab === "plans" && isBilling && <PlansTab />}
+            {activeTab === "payments" && isBilling && <PaymentsTab />}
+            {activeTab === "memberships" && isBilling && <MembershipsTab />}
+            {activeTab === "audit" && (isAdmin || isEditor) && <AuditTab />}
+            {activeTab === "settings" && isAdmin && <SettingsTab />}
+          </div>
+        </main>
       </div>
     </div>
   );
 }
+
 
 function FullPage({ children }: { children: React.ReactNode }) {
   return <div className="flex min-h-screen items-center justify-center px-4">{children}</div>;
