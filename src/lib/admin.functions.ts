@@ -81,7 +81,7 @@ export const adminSaveResource = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => resourceSchema.parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "editor"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const payload = { ...data };
     if (data.id) {
@@ -105,7 +105,7 @@ export const adminDeleteResource = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { id: string }) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "editor"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("resources").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
@@ -123,7 +123,7 @@ export const adminSaveCategory = createServerFn({ method: "POST" })
     sort_order: z.number().int().default(0),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "editor"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     if (data.id) {
       const { id, ...rest } = data;
@@ -142,7 +142,7 @@ export const adminDeleteCategory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { id: string }) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "editor"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("categories").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
@@ -153,7 +153,7 @@ export const adminSaveSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { data: Record<string, unknown> }) => z.object({ data: z.record(z.string(), z.any()) }).parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "editor"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("site_settings").upsert({ id: "main", data: data.data, updated_at: new Date().toISOString() });
     if (error) throw new Error(error.message);
@@ -164,7 +164,7 @@ export const adminUploadUrl = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { path: string }) => z.object({ path: z.string().min(1).max(300) }).parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "editor"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: signed, error } = await supabaseAdmin.storage.from("resources").createSignedUploadUrl(data.path);
     if (error) throw new Error(error.message);
