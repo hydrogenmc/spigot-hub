@@ -55,8 +55,8 @@ export const adminListUsers = createServerFn({ method: "POST" })
 
 export const adminGrantRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { user_id: string; role: "admin" | "vip" | "member"; grant: boolean }) =>
-    z.object({ user_id: z.string().uuid(), role: z.enum(["admin", "vip", "member"]), grant: z.boolean() }).parse(d),
+  .inputValidator((d: { user_id: string; role: "admin" | "vip" | "member" | "editor" | "billing"; grant: boolean }) =>
+    z.object({ user_id: z.string().uuid(), role: z.enum(["admin", "vip", "member", "editor", "billing"]), grant: z.boolean() }).parse(d),
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
@@ -68,6 +68,40 @@ export const adminGrantRole = createServerFn({ method: "POST" })
     }
     return { ok: true };
   });
+
+export const adminInviteUser = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { email: string; roles: Array<"admin" | "vip" | "member" | "editor" | "billing"> }) =>
+    z.object({
+      email: z.string().email().max(200),
+      roles: z.array(z.enum(["admin", "vip", "member", "editor", "billing"])).max(5).default([]),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: invite, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(data.email);
+    if (error) throw new Error(error.message);
+    const uid = invite.user?.id;
+    if (uid && data.roles.length) {
+      const rows = data.roles.map((role) => ({ user_id: uid, role }));
+      await supabaseAdmin.from("user_roles").upsert(rows, { onConflict: "user_id,role" });
+    }
+    return { ok: true, user_id: uid };
+  });
+
+export const adminRemoveUser = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { user_id: string }) => z.object({ user_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    if (data.user_id === context.userId) throw new Error("You cannot remove your own account.");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(data.user_id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 
 export const adminAdjustCredits = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
