@@ -696,16 +696,25 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 // =============================================================
 // Users tab
 // =============================================================
+type OrgRole = "admin" | "editor" | "billing" | "vip" | "member";
+const ORG_ROLES: OrgRole[] = ["admin", "editor", "billing", "vip", "member"];
+
 function UsersTab() {
   const qc = useQueryClient();
   const list = useServerFn(adminListUsers);
   const grant = useServerFn(adminGrantRole);
   const adj = useServerFn(adminAdjustCredits);
+  const invite = useServerFn(adminInviteUser);
+  const remove = useServerFn(adminRemoveUser);
   const [q, setQ] = useState("");
   const users = useQuery({ queryKey: ["admin-users", q], queryFn: () => list({ data: { q } }) });
 
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRoles, setInviteRoles] = useState<OrgRole[]>(["member"]);
+
   const grantMut = useMutation({
-    mutationFn: (v: { user_id: string; role: "admin" | "vip" | "member"; grant: boolean }) => grant({ data: v }),
+    mutationFn: (v: { user_id: string; role: OrgRole; grant: boolean }) => grant({ data: v }),
     onSuccess: () => { toast.success("Role updated"); qc.invalidateQueries({ queryKey: ["admin-users"] }); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
@@ -714,11 +723,69 @@ function UsersTab() {
     onSuccess: () => { toast.success("Credits adjusted"); qc.invalidateQueries({ queryKey: ["admin-users"] }); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
+  const inviteMut = useMutation({
+    mutationFn: (v: { email: string; roles: OrgRole[] }) => invite({ data: v }),
+    onSuccess: () => {
+      toast.success(`Invite sent to ${inviteEmail}`);
+      setInviteOpen(false); setInviteEmail(""); setInviteRoles(["member"]);
+      qc.invalidateQueries({ queryKey: ["admin-users"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Invite failed"),
+  });
+  const removeMut = useMutation({
+    mutationFn: (user_id: string) => remove({ data: { user_id } }),
+    onSuccess: () => { toast.success("User removed"); qc.invalidateQueries({ queryKey: ["admin-users"] }); },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Remove failed"),
+  });
+
+  const toggleInviteRole = (r: OrgRole) =>
+    setInviteRoles((cur) => (cur.includes(r) ? cur.filter((x) => x !== r) : [...cur, r]));
 
   return (
     <div>
-      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search email or name…"
-        className="w-full max-w-sm rounded-lg bg-input/60 px-3 py-2 text-sm outline-none ring-1 ring-border/60 focus:ring-primary" />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search email or name…"
+          className="w-full max-w-sm rounded-lg bg-input/60 px-3 py-2 text-sm outline-none ring-1 ring-border/60 focus:ring-primary" />
+        <button onClick={() => setInviteOpen((v) => !v)}
+          className="btn-glow hover:btn-glow-hover inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm">
+          <UserPlus size={14} /> Invite member
+        </button>
+      </div>
+
+      {inviteOpen && (
+        <div className="glass-strong mt-4 rounded-2xl p-5">
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+            <input
+              type="email" placeholder="teammate@example.com"
+              value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)}
+              className="rounded-lg bg-input/60 px-3 py-2 text-sm outline-none ring-1 ring-border/60 focus:ring-primary" />
+            <div className="flex gap-2">
+              <button
+                disabled={inviteMut.isPending || !inviteEmail}
+                onClick={() => inviteMut.mutate({ email: inviteEmail, roles: inviteRoles })}
+                className="btn-glow hover:btn-glow-hover inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm disabled:opacity-60">
+                {inviteMut.isPending ? "Sending…" : "Send invite"}
+              </button>
+              <button onClick={() => setInviteOpen(false)} className="rounded-lg border border-border px-3 py-2 text-sm">Cancel</button>
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Assign roles on join</div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {ORG_ROLES.map((r) => (
+                <button key={r} onClick={() => toggleInviteRole(r)}
+                  className={`rounded-full px-2.5 py-1 text-xs ${inviteRoles.includes(r) ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground hover:text-foreground"}`}>
+                  {r}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              <b>editor</b> = manage resources & categories · <b>billing</b> = manage plans & payments · <b>admin</b> = full access.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="glass mt-4 overflow-x-auto rounded-2xl">
         <table className="w-full text-sm">
           <thead className="bg-secondary/40 text-xs uppercase text-muted-foreground">
@@ -732,10 +799,11 @@ function UsersTab() {
                   <div className="text-xs text-muted-foreground">{u.email}</div>
                 </td>
                 <td className="px-4 py-3 text-xs">
-                  {(["admin","vip","member"] as const).map((r) => {
+                  {ORG_ROLES.map((r) => {
                     const has = u.roles.includes(r);
                     return (
                       <button key={r} onClick={() => grantMut.mutate({ user_id: u.id, role: r, grant: !has })}
+                        title={has ? `Remove ${r}` : `Grant ${r}`}
                         className={`mr-1 rounded px-1.5 py-0.5 ${has ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground hover:bg-secondary/80"}`}>
                         {r}
                       </button>
@@ -751,16 +819,24 @@ function UsersTab() {
                     const delta = Number(v); if (!Number.isFinite(delta)) return toast.error("Invalid number");
                     const reason = prompt("Reason:", "admin_adjust") ?? "admin_adjust";
                     adjMut.mutate({ user_id: u.id, delta, reason });
-                  }} className="text-xs text-primary hover:underline">Adjust credits</button>
+                  }} className="mr-3 text-xs text-primary hover:underline">Adjust credits</button>
+                  <button onClick={() => {
+                    if (!confirm(`Permanently remove ${u.email}? This cannot be undone.`)) return;
+                    removeMut.mutate(u.id);
+                  }} className="inline-flex items-center gap-1 text-xs text-destructive hover:underline">
+                    <UserMinus size={11} /> Remove
+                  </button>
                 </td>
               </tr>
             ))}
+            {(users.data?.length ?? 0) === 0 && <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">No users yet.</td></tr>}
           </tbody>
         </table>
       </div>
     </div>
   );
 }
+
 
 // =============================================================
 // Plans tab
