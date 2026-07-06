@@ -78,7 +78,8 @@ export const adminQuickUpdateResource = createServerFn({ method: "POST" })
       external_url: z.string().url().nullable().optional(),
     }).parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "editor"]);
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: current, error: gErr } = await supabaseAdmin
       .from("resources").select("changelog, version").eq("id", data.id).single();
