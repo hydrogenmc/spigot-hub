@@ -17,7 +17,9 @@ import {
   adminListPlans, adminSavePlan, adminDeletePlan,
   adminListReceipts, adminApproveReceipt, adminRejectReceipt,
   adminListMemberships, adminBulkUpdateTier, adminCsvUpdateTiers,
+  adminInviteUser, adminRemoveUser,
 } from "@/lib/admin-ext.functions";
+
 import { adminListAuditLogs, adminQuickUpdateResource } from "@/lib/audit.functions";
 import { getSettings } from "@/lib/resources.functions";
 
