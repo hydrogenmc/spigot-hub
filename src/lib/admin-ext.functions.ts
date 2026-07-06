@@ -120,7 +120,7 @@ export const adminAdjustCredits = createServerFn({ method: "POST" })
 export const adminListPlans = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "billing"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin.from("membership_plans").select("*").order("sort_order");
     if (error) throw new Error(error.message);
@@ -141,7 +141,7 @@ export const adminSavePlan = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "billing"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     if (data.id) {
       const { id, ...rest } = data;
@@ -160,7 +160,7 @@ export const adminDeletePlan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { id: string }) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "billing"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("membership_plans").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
@@ -172,7 +172,7 @@ export const adminListReceipts = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { status?: string } = {}) => z.object({ status: z.string().optional() }).parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "billing"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     let q = supabaseAdmin
       .from("payment_receipts")
@@ -195,7 +195,7 @@ export const adminApproveReceipt = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { id: string; note?: string }) => z.object({ id: z.string().uuid(), note: z.string().max(500).optional() }).parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "billing"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: r, error: rErr } = await supabaseAdmin.from("payment_receipts").select("*").eq("id", data.id).single();
     if (rErr || !r) throw new Error("Receipt not found");
@@ -222,7 +222,7 @@ export const adminRejectReceipt = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { id: string; note: string }) => z.object({ id: z.string().uuid(), note: z.string().min(1).max(500) }).parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "billing"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("payment_receipts").update({
       status: "rejected", reviewed_by: context.userId,
@@ -243,7 +243,7 @@ export const adminBulkUpdateTier = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "editor"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const patch = {
       access_tier: data.access_tier,
@@ -268,7 +268,7 @@ export const adminCsvUpdateTiers = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "editor"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: all, error: fErr } = await supabaseAdmin.from("resources").select("id, slug");
     if (fErr) throw new Error(fErr.message);
@@ -296,7 +296,7 @@ export const adminCsvUpdateTiers = createServerFn({ method: "POST" })
 export const adminListMemberships = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "billing"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("vip_memberships")
