@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { LogOut, Plus, Trash2, Save, Upload, Settings as Cog, FolderTree, Package, Users as UsersIcon, Crown, Receipt, Coins, CheckCircle2, XCircle, ShieldCheck, Zap, X } from "lucide-react";
+import { LogOut, Plus, Trash2, Save, Upload, Settings as Cog, FolderTree, Package, Users as UsersIcon, Crown, Receipt, Coins, CheckCircle2, XCircle, ShieldCheck, Zap, X, Menu, UserPlus, UserMinus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
 import { RichTextEditor } from "@/components/RichTextEditor";
