@@ -153,7 +153,8 @@ export const adminSaveSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { data: Record<string, unknown> }) => z.object({ data: z.record(z.string(), z.any()) }).parse(d))
   .handler(async ({ data, context }) => {
-    await assertAnyRole(context.userId, ["admin", "editor"]);
+    await assertAnyRole(context.userId, ["admin"]);
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("site_settings").upsert({ id: "main", data: data.data, updated_at: new Date().toISOString() });
     if (error) throw new Error(error.message);
