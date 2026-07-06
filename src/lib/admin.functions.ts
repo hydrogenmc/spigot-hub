@@ -2,11 +2,24 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-async function assertAdmin(userId: string) {
+export async function getCallerRoles(userId: string): Promise<string[]> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle();
-  if (!data) throw new Error("Forbidden: admin role required");
+  const { data } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", userId);
+  return (data ?? []).map((r) => r.role as string);
 }
+
+async function assertAdmin(userId: string) {
+  const roles = await getCallerRoles(userId);
+  if (!roles.includes("admin")) throw new Error("Forbidden: admin role required");
+}
+
+export async function assertAnyRole(userId: string, allowed: string[]) {
+  const roles = await getCallerRoles(userId);
+  if (!roles.some((r) => allowed.includes(r))) {
+    throw new Error(`Forbidden: requires one of ${allowed.join(", ")}`);
+  }
+}
+
 
 const resourceSchema = z.object({
   id: z.string().uuid().optional(),
