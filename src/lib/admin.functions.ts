@@ -9,9 +9,9 @@ export async function getCallerRoles(userId: string): Promise<string[]> {
 }
 
 async function assertAdmin(userId: string) {
-  const roles = await getCallerRoles(userId);
-  if (!roles.includes("admin")) throw new Error("Forbidden: admin role required");
+  await assertAnyRole(userId, ["admin"]);
 }
+
 
 export async function assertAnyRole(userId: string, allowed: string[]) {
   const roles = await getCallerRoles(userId);
