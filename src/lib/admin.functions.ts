@@ -56,15 +56,21 @@ const resourceSchema = z.object({
 export const adminCheck = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", context.userId).eq("role", "admin").maybeSingle();
-    return { isAdmin: !!data, userId: context.userId };
+    const roles = await getCallerRoles(context.userId);
+    return {
+      isAdmin: roles.includes("admin"),
+      isEditor: roles.includes("editor") || roles.includes("admin"),
+      isBilling: roles.includes("billing") || roles.includes("admin"),
+      roles,
+      userId: context.userId,
+    };
   });
 
 export const adminListResources = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "editor"]);
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin.from("resources").select("*, categories(name, slug)").order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
