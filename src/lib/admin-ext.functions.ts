@@ -1,12 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { assertAnyRole } from "@/lib/admin.functions";
 
 async function assertAdmin(userId: string) {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle();
-  if (!data) throw new Error("Forbidden");
+  await assertAnyRole(userId, ["admin"]);
 }
+
 
 // ------------------- Users -------------------
 export const adminListUsers = createServerFn({ method: "POST" })
@@ -55,8 +55,8 @@ export const adminListUsers = createServerFn({ method: "POST" })
 
 export const adminGrantRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { user_id: string; role: "admin" | "vip" | "member"; grant: boolean }) =>
-    z.object({ user_id: z.string().uuid(), role: z.enum(["admin", "vip", "member"]), grant: z.boolean() }).parse(d),
+  .inputValidator((d: { user_id: string; role: "admin" | "vip" | "member" | "editor" | "billing"; grant: boolean }) =>
+    z.object({ user_id: z.string().uuid(), role: z.enum(["admin", "vip", "member", "editor", "billing"]), grant: z.boolean() }).parse(d),
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
@@ -68,6 +68,40 @@ export const adminGrantRole = createServerFn({ method: "POST" })
     }
     return { ok: true };
   });
+
+export const adminInviteUser = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { email: string; roles: Array<"admin" | "vip" | "member" | "editor" | "billing"> }) =>
+    z.object({
+      email: z.string().email().max(200),
+      roles: z.array(z.enum(["admin", "vip", "member", "editor", "billing"])).max(5).default([]),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: invite, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(data.email);
+    if (error) throw new Error(error.message);
+    const uid = invite.user?.id;
+    if (uid && data.roles.length) {
+      const rows = data.roles.map((role) => ({ user_id: uid, role }));
+      await supabaseAdmin.from("user_roles").upsert(rows, { onConflict: "user_id,role" });
+    }
+    return { ok: true, user_id: uid };
+  });
+
+export const adminRemoveUser = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { user_id: string }) => z.object({ user_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    if (data.user_id === context.userId) throw new Error("You cannot remove your own account.");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(data.user_id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 
 export const adminAdjustCredits = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -86,7 +120,7 @@ export const adminAdjustCredits = createServerFn({ method: "POST" })
 export const adminListPlans = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "billing"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin.from("membership_plans").select("*").order("sort_order");
     if (error) throw new Error(error.message);
@@ -107,7 +141,7 @@ export const adminSavePlan = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "billing"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     if (data.id) {
       const { id, ...rest } = data;
@@ -126,7 +160,7 @@ export const adminDeletePlan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { id: string }) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "billing"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("membership_plans").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
@@ -138,7 +172,7 @@ export const adminListReceipts = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { status?: string } = {}) => z.object({ status: z.string().optional() }).parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "billing"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     let q = supabaseAdmin
       .from("payment_receipts")
@@ -161,7 +195,7 @@ export const adminApproveReceipt = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { id: string; note?: string }) => z.object({ id: z.string().uuid(), note: z.string().max(500).optional() }).parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "billing"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: r, error: rErr } = await supabaseAdmin.from("payment_receipts").select("*").eq("id", data.id).single();
     if (rErr || !r) throw new Error("Receipt not found");
@@ -188,7 +222,7 @@ export const adminRejectReceipt = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { id: string; note: string }) => z.object({ id: z.string().uuid(), note: z.string().min(1).max(500) }).parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "billing"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("payment_receipts").update({
       status: "rejected", reviewed_by: context.userId,
@@ -209,7 +243,7 @@ export const adminBulkUpdateTier = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "editor"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const patch = {
       access_tier: data.access_tier,
@@ -234,7 +268,7 @@ export const adminCsvUpdateTiers = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "editor"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: all, error: fErr } = await supabaseAdmin.from("resources").select("id, slug");
     if (fErr) throw new Error(fErr.message);
@@ -262,7 +296,7 @@ export const adminCsvUpdateTiers = createServerFn({ method: "POST" })
 export const adminListMemberships = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "billing"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("vip_memberships")

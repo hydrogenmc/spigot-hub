@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { LogOut, Plus, Trash2, Save, Upload, Settings as Cog, FolderTree, Package, Users as UsersIcon, Crown, Receipt, Coins, CheckCircle2, XCircle, ShieldCheck, Zap, X } from "lucide-react";
+import { LogOut, Plus, Trash2, Save, Upload, Settings as Cog, FolderTree, Package, Users as UsersIcon, Crown, Receipt, Coins, CheckCircle2, XCircle, ShieldCheck, Zap, X, Menu, UserPlus, UserMinus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
 import { RichTextEditor } from "@/components/RichTextEditor";
@@ -17,7 +17,9 @@ import {
   adminListPlans, adminSavePlan, adminDeletePlan,
   adminListReceipts, adminApproveReceipt, adminRejectReceipt,
   adminListMemberships, adminBulkUpdateTier, adminCsvUpdateTiers,
+  adminInviteUser, adminRemoveUser,
 } from "@/lib/admin-ext.functions";
+
 import { adminListAuditLogs, adminQuickUpdateResource } from "@/lib/audit.functions";
 import { getSettings } from "@/lib/resources.functions";
 
@@ -33,6 +35,16 @@ function AdminPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>("resources");
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const v = window.localStorage.getItem("admin-sidebar-open");
+    return v == null ? true : v === "1";
+  });
+  const toggleSidebar = () => setSidebarOpen((v) => {
+    const nv = !v;
+    try { window.localStorage.setItem("admin-sidebar-open", nv ? "1" : "0"); } catch { /* ignore */ }
+    return nv;
+  });
 
   const check = useServerFn(adminCheck);
   const promote = useServerFn(adminPromoteSelf);
@@ -46,12 +58,18 @@ function AdminPage() {
   };
 
   if (status.isLoading) return <FullPage>Loading…</FullPage>;
-  if (!status.data?.isAdmin) {
+  const roles = status.data?.roles ?? [];
+  const isAdmin = !!status.data?.isAdmin;
+  const isEditor = isAdmin || roles.includes("editor");
+  const isBilling = isAdmin || roles.includes("billing");
+  const canAccess = isAdmin || isEditor || isBilling;
+
+  if (!canAccess) {
     return (
       <FullPage>
         <div className="glass-strong w-full max-w-md rounded-3xl p-8 text-center">
           <Logo size={36} />
-          <h1 className="mt-6 font-display text-xl font-bold">Not an admin yet</h1>
+          <h1 className="mt-6 font-display text-xl font-bold">No admin access</h1>
           <p className="mt-2 text-sm text-muted-foreground">If you're the first user, claim the admin role now.</p>
           <button onClick={async () => { try { await promote(); toast.success("You're now an admin"); status.refetch(); } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); } }}
             className="btn-glow hover:btn-glow-hover mt-6 w-full rounded-lg px-4 py-2.5 text-sm">
@@ -63,12 +81,45 @@ function AdminPage() {
     );
   }
 
+  const sections: Array<{ group: string; tabs: Array<{ id: Tab; icon: typeof Package; label: string; show: boolean }> }> = [
+    { group: "Content", tabs: [
+      { id: "resources", icon: Package, label: "Resources", show: isEditor },
+      { id: "categories", icon: FolderTree, label: "Categories", show: isEditor },
+    ]},
+    { group: "Community", tabs: [
+      { id: "users", icon: UsersIcon, label: "Team & Users", show: isAdmin },
+      { id: "memberships", icon: Crown, label: "Memberships", show: isBilling },
+    ]},
+    { group: "Billing", tabs: [
+      { id: "plans", icon: Crown, label: "Plans", show: isBilling },
+      { id: "payments", icon: Receipt, label: "Payments", show: isBilling },
+    ]},
+    { group: "System", tabs: [
+      { id: "audit", icon: ShieldCheck, label: "Audit Log", show: isAdmin || isEditor },
+      { id: "settings", icon: Cog, label: "Settings", show: isAdmin },
+    ]},
+  ];
+
+  const allowedTabs = sections.flatMap((s) => s.tabs).filter((t) => t.show).map((t) => t.id);
+  const activeTab: Tab = allowedTabs.includes(tab) ? tab : (allowedTabs[0] ?? "resources");
+
   return (
     <div className="min-h-screen">
       <header className="glass-strong sticky top-0 z-40 border-b border-border/50">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <Link to="/"><Logo /></Link>
           <div className="flex items-center gap-2">
+            <button
+              onClick={toggleSidebar}
+              aria-label="Toggle sidebar"
+              className="rounded-lg border border-border/60 p-2 text-foreground hover:bg-secondary">
+              <Menu size={18} />
+            </button>
+            <Link to="/"><Logo /></Link>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="hidden text-xs text-muted-foreground sm:inline">
+              {isAdmin ? "Admin" : roles.filter((r) => ["editor","billing"].includes(r)).join(" · ") || "Staff"}
+            </span>
             <Link to="/" className="text-sm text-muted-foreground hover:text-primary">View site</Link>
             <button onClick={signOut} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-secondary">
               <LogOut size={14} /> Sign out
@@ -77,55 +128,57 @@ function AdminPage() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        <h1 className="font-display text-3xl font-bold">Admin <span className="text-gradient">Dashboard</span></h1>
+      {/* Backdrop for mobile drawer */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 top-16 z-20 bg-black/50 lg:hidden" onClick={toggleSidebar} />
+      )}
 
-        <div className="glass mt-6 flex flex-wrap items-center gap-4 rounded-xl p-2">
-          {[
-            { group: "Content", tabs: [
-              { id: "resources" as const, icon: Package, label: "Resources" },
-              { id: "categories" as const, icon: FolderTree, label: "Categories" },
-            ]},
-            { group: "Community", tabs: [
-              { id: "users" as const, icon: UsersIcon, label: "Users" },
-              { id: "memberships" as const, icon: Crown, label: "Memberships" },
-            ]},
-            { group: "Billing", tabs: [
-              { id: "plans" as const, icon: Crown, label: "Plans" },
-              { id: "payments" as const, icon: Receipt, label: "Payments" },
-            ]},
-            { group: "System", tabs: [
-              { id: "audit" as const, icon: ShieldCheck, label: "Audit" },
-              { id: "settings" as const, icon: Cog, label: "Settings" },
-            ]},
-          ].map((section) => (
-            <div key={section.group} className="flex items-center gap-1">
-              <span className="hidden pl-2 pr-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground sm:inline">{section.group}</span>
-              {section.tabs.map((t) => (
-                <button key={t.id} onClick={() => setTab(t.id)}
-                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition ${tab === t.id ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
-                  <t.icon size={14} /> {t.label}
-                </button>
-              ))}
-              <span className="mx-1 hidden h-5 w-px bg-border/60 last:hidden md:inline-block" />
-            </div>
-          ))}
-        </div>
+      <div className="mx-auto flex max-w-7xl">
+        <aside
+          className={`fixed left-0 top-16 z-30 h-[calc(100vh-4rem)] w-64 shrink-0 overflow-y-auto border-r border-border/50 bg-background/95 backdrop-blur transition-transform duration-200 lg:sticky lg:top-16 lg:z-10 lg:bg-transparent lg:backdrop-blur-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:hidden"}`}
+        >
+          <nav className="space-y-6 p-4">
+            {sections.map((section) => {
+              const visible = section.tabs.filter((t) => t.show);
+              if (visible.length === 0) return null;
+              return (
+                <div key={section.group}>
+                  <div className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{section.group}</div>
+                  <div className="space-y-1">
+                    {visible.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => { setTab(t.id); if (window.innerWidth < 1024) setSidebarOpen(false); }}
+                        className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition ${activeTab === t.id ? "bg-primary/20 text-primary" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"}`}>
+                        <t.icon size={15} /> {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </nav>
+        </aside>
 
-        <div className="mt-6">
-          {tab === "resources" && <ResourcesTab />}
-          {tab === "categories" && <CategoriesTab />}
-          {tab === "users" && <UsersTab />}
-          {tab === "plans" && <PlansTab />}
-          {tab === "payments" && <PaymentsTab />}
-          {tab === "memberships" && <MembershipsTab />}
-          {tab === "audit" && <AuditTab />}
-          {tab === "settings" && <SettingsTab />}
-        </div>
+        <main className={`flex-1 px-4 py-8 sm:px-6 ${sidebarOpen ? "lg:ml-0" : ""}`}>
+          <h1 className="font-display text-3xl font-bold">Admin <span className="text-gradient">Dashboard</span></h1>
+
+          <div className="mt-6">
+            {activeTab === "resources" && isEditor && <ResourcesTab />}
+            {activeTab === "categories" && isEditor && <CategoriesTab />}
+            {activeTab === "users" && isAdmin && <UsersTab />}
+            {activeTab === "plans" && isBilling && <PlansTab />}
+            {activeTab === "payments" && isBilling && <PaymentsTab />}
+            {activeTab === "memberships" && isBilling && <MembershipsTab />}
+            {activeTab === "audit" && (isAdmin || isEditor) && <AuditTab />}
+            {activeTab === "settings" && isAdmin && <SettingsTab />}
+          </div>
+        </main>
       </div>
     </div>
   );
 }
+
 
 function FullPage({ children }: { children: React.ReactNode }) {
   return <div className="flex min-h-screen items-center justify-center px-4">{children}</div>;
@@ -643,16 +696,25 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 // =============================================================
 // Users tab
 // =============================================================
+type OrgRole = "admin" | "editor" | "billing" | "vip" | "member";
+const ORG_ROLES: OrgRole[] = ["admin", "editor", "billing", "vip", "member"];
+
 function UsersTab() {
   const qc = useQueryClient();
   const list = useServerFn(adminListUsers);
   const grant = useServerFn(adminGrantRole);
   const adj = useServerFn(adminAdjustCredits);
+  const invite = useServerFn(adminInviteUser);
+  const remove = useServerFn(adminRemoveUser);
   const [q, setQ] = useState("");
   const users = useQuery({ queryKey: ["admin-users", q], queryFn: () => list({ data: { q } }) });
 
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRoles, setInviteRoles] = useState<OrgRole[]>(["member"]);
+
   const grantMut = useMutation({
-    mutationFn: (v: { user_id: string; role: "admin" | "vip" | "member"; grant: boolean }) => grant({ data: v }),
+    mutationFn: (v: { user_id: string; role: OrgRole; grant: boolean }) => grant({ data: v }),
     onSuccess: () => { toast.success("Role updated"); qc.invalidateQueries({ queryKey: ["admin-users"] }); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
@@ -661,11 +723,69 @@ function UsersTab() {
     onSuccess: () => { toast.success("Credits adjusted"); qc.invalidateQueries({ queryKey: ["admin-users"] }); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
+  const inviteMut = useMutation({
+    mutationFn: (v: { email: string; roles: OrgRole[] }) => invite({ data: v }),
+    onSuccess: () => {
+      toast.success(`Invite sent to ${inviteEmail}`);
+      setInviteOpen(false); setInviteEmail(""); setInviteRoles(["member"]);
+      qc.invalidateQueries({ queryKey: ["admin-users"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Invite failed"),
+  });
+  const removeMut = useMutation({
+    mutationFn: (user_id: string) => remove({ data: { user_id } }),
+    onSuccess: () => { toast.success("User removed"); qc.invalidateQueries({ queryKey: ["admin-users"] }); },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Remove failed"),
+  });
+
+  const toggleInviteRole = (r: OrgRole) =>
+    setInviteRoles((cur) => (cur.includes(r) ? cur.filter((x) => x !== r) : [...cur, r]));
 
   return (
     <div>
-      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search email or name…"
-        className="w-full max-w-sm rounded-lg bg-input/60 px-3 py-2 text-sm outline-none ring-1 ring-border/60 focus:ring-primary" />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search email or name…"
+          className="w-full max-w-sm rounded-lg bg-input/60 px-3 py-2 text-sm outline-none ring-1 ring-border/60 focus:ring-primary" />
+        <button onClick={() => setInviteOpen((v) => !v)}
+          className="btn-glow hover:btn-glow-hover inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm">
+          <UserPlus size={14} /> Invite member
+        </button>
+      </div>
+
+      {inviteOpen && (
+        <div className="glass-strong mt-4 rounded-2xl p-5">
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+            <input
+              type="email" placeholder="teammate@example.com"
+              value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)}
+              className="rounded-lg bg-input/60 px-3 py-2 text-sm outline-none ring-1 ring-border/60 focus:ring-primary" />
+            <div className="flex gap-2">
+              <button
+                disabled={inviteMut.isPending || !inviteEmail}
+                onClick={() => inviteMut.mutate({ email: inviteEmail, roles: inviteRoles })}
+                className="btn-glow hover:btn-glow-hover inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm disabled:opacity-60">
+                {inviteMut.isPending ? "Sending…" : "Send invite"}
+              </button>
+              <button onClick={() => setInviteOpen(false)} className="rounded-lg border border-border px-3 py-2 text-sm">Cancel</button>
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Assign roles on join</div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {ORG_ROLES.map((r) => (
+                <button key={r} onClick={() => toggleInviteRole(r)}
+                  className={`rounded-full px-2.5 py-1 text-xs ${inviteRoles.includes(r) ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground hover:text-foreground"}`}>
+                  {r}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              <b>editor</b> = manage resources & categories · <b>billing</b> = manage plans & payments · <b>admin</b> = full access.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="glass mt-4 overflow-x-auto rounded-2xl">
         <table className="w-full text-sm">
           <thead className="bg-secondary/40 text-xs uppercase text-muted-foreground">
@@ -679,10 +799,11 @@ function UsersTab() {
                   <div className="text-xs text-muted-foreground">{u.email}</div>
                 </td>
                 <td className="px-4 py-3 text-xs">
-                  {(["admin","vip","member"] as const).map((r) => {
+                  {ORG_ROLES.map((r) => {
                     const has = u.roles.includes(r);
                     return (
                       <button key={r} onClick={() => grantMut.mutate({ user_id: u.id, role: r, grant: !has })}
+                        title={has ? `Remove ${r}` : `Grant ${r}`}
                         className={`mr-1 rounded px-1.5 py-0.5 ${has ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground hover:bg-secondary/80"}`}>
                         {r}
                       </button>
@@ -698,16 +819,24 @@ function UsersTab() {
                     const delta = Number(v); if (!Number.isFinite(delta)) return toast.error("Invalid number");
                     const reason = prompt("Reason:", "admin_adjust") ?? "admin_adjust";
                     adjMut.mutate({ user_id: u.id, delta, reason });
-                  }} className="text-xs text-primary hover:underline">Adjust credits</button>
+                  }} className="mr-3 text-xs text-primary hover:underline">Adjust credits</button>
+                  <button onClick={() => {
+                    if (!confirm(`Permanently remove ${u.email}? This cannot be undone.`)) return;
+                    removeMut.mutate(u.id);
+                  }} className="inline-flex items-center gap-1 text-xs text-destructive hover:underline">
+                    <UserMinus size={11} /> Remove
+                  </button>
                 </td>
               </tr>
             ))}
+            {(users.data?.length ?? 0) === 0 && <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">No users yet.</td></tr>}
           </tbody>
         </table>
       </div>
     </div>
   );
 }
+
 
 // =============================================================
 // Plans tab

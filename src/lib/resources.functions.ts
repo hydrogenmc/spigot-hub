@@ -22,19 +22,22 @@ async function signIfBucketUrl(
 }
 
 export const listResources = createServerFn({ method: "GET" })
-  .inputValidator((d: { category?: string; mcVersion?: string; sort?: "newest" | "popular" | "downloads"; q?: string; featured?: boolean; limit?: number } = {}) =>
+  .inputValidator((d: { category?: string; mcVersion?: string; sort?: "newest" | "popular" | "downloads"; q?: string; featured?: boolean; limit?: number; tags?: string[]; dependencies?: string[]; tier?: "all" | "free" | "vip" } = {}) =>
     z.object({
       category: z.string().optional(),
       mcVersion: z.string().optional(),
       sort: z.enum(["newest", "popular", "downloads"]).default("newest"),
       q: z.string().optional(),
       featured: z.boolean().optional(),
-      limit: z.number().int().min(1).max(100).default(60),
+      limit: z.number().int().min(1).max(200).default(60),
+      tags: z.array(z.string().max(40)).max(20).optional(),
+      dependencies: z.array(z.string().max(80)).max(20).optional(),
+      tier: z.enum(["all", "free", "vip"]).default("all"),
     }).parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     let q = supabaseAdmin.from("resources")
-      .select("id, slug, title, description, version, mc_version, author, thumbnail_url, download_count, featured, created_at, tags, category_id, access_tier, credit_cost, categories(slug, name, icon)")
+      .select("id, slug, title, description, version, mc_version, author, thumbnail_url, download_count, featured, created_at, tags, dependencies, category_id, access_tier, credit_cost, categories(slug, name, icon)")
       .eq("published", true);
     if (data.category) {
       const { data: cat } = await supabaseAdmin.from("categories").select("id").eq("slug", data.category).maybeSingle();
@@ -43,6 +46,9 @@ export const listResources = createServerFn({ method: "GET" })
     if (data.mcVersion) q = q.ilike("mc_version", `%${data.mcVersion}%`);
     if (data.q) q = q.or(`title.ilike.%${data.q}%,description.ilike.%${data.q}%`);
     if (data.featured) q = q.eq("featured", true);
+    if (data.tier && data.tier !== "all") q = q.eq("access_tier", data.tier);
+    if (data.tags && data.tags.length) q = q.overlaps("tags", data.tags);
+    if (data.dependencies && data.dependencies.length) q = q.overlaps("dependencies", data.dependencies);
     if (data.sort === "newest") q = q.order("created_at", { ascending: false });
     else q = q.order("download_count", { ascending: false });
     q = q.limit(data.limit);
@@ -54,6 +60,23 @@ export const listResources = createServerFn({ method: "GET" })
     })));
     return out;
   });
+
+export const listResourceFacets = createServerFn({ method: "GET" }).handler(async () => {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin.from("resources").select("tags, dependencies, mc_version").eq("published", true);
+  const tags = new Set<string>(); const deps = new Set<string>(); const versions = new Set<string>();
+  (data ?? []).forEach((r) => {
+    (r.tags ?? []).forEach((t: string) => t && tags.add(t));
+    (r.dependencies ?? []).forEach((d: string) => d && deps.add(d));
+    if (r.mc_version) versions.add(r.mc_version);
+  });
+  return {
+    tags: Array.from(tags).sort(),
+    dependencies: Array.from(deps).sort(),
+    versions: Array.from(versions).sort(),
+  };
+});
+
 
 export const getResource = createServerFn({ method: "GET" })
   .inputValidator((d: { slug: string }) => z.object({ slug: z.string().min(1).max(200) }).parse(d))

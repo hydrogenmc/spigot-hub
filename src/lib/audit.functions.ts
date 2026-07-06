@@ -2,11 +2,12 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
+import { assertAnyRole } from "@/lib/admin.functions";
+
 async function assertAdmin(userId: string) {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle();
-  if (!data) throw new Error("Forbidden");
+  await assertAnyRole(userId, ["admin"]);
 }
+
 
 export const adminListAuditLogs = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -77,7 +78,8 @@ export const adminQuickUpdateResource = createServerFn({ method: "POST" })
       external_url: z.string().url().nullable().optional(),
     }).parse(d))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
+    await assertAnyRole(context.userId, ["admin", "editor"]);
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: current, error: gErr } = await supabaseAdmin
       .from("resources").select("changelog, version").eq("id", data.id).single();
