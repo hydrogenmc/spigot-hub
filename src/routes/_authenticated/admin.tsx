@@ -135,7 +135,7 @@ function AdminPage() {
 
       <div className="mx-auto flex max-w-7xl">
         <aside
-          className={`fixed left-0 top-16 z-30 h-[calc(100vh-4rem)] w-64 shrink-0 overflow-y-auto border-r border-border/50 bg-background/95 backdrop-blur transition-transform duration-200 lg:sticky lg:top-16 lg:z-10 lg:bg-transparent lg:backdrop-blur-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+          className={`fixed left-0 top-16 z-30 h-[calc(100vh-4rem)] w-64 shrink-0 overflow-y-auto border-r border-border/50 bg-background/95 backdrop-blur transition-transform duration-200 lg:sticky lg:top-16 lg:z-10 lg:bg-transparent lg:backdrop-blur-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:hidden"}`}
         >
           <nav className="space-y-6 p-4">
             {sections.map((section) => {
