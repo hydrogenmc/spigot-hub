@@ -3,11 +3,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Coins, Crown, Calendar, Gift, Save, LogOut, ArrowRight } from "lucide-react";
+import { Crown, Calendar, Gift, Save, LogOut, ArrowRight, Download, Shield } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
-import { getMe, claimDailyCredits, updateProfile } from "@/lib/auth.functions";
-import { getMyLedger } from "@/lib/credits.functions";
+import { getMe, updateProfile } from "@/lib/auth.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/account")({
@@ -19,26 +18,11 @@ function AccountPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const me = useServerFn(getMe);
-  const claim = useServerFn(claimDailyCredits);
   const update = useServerFn(updateProfile);
-  const ledger = useServerFn(getMyLedger);
 
   const meQ = useQuery({ queryKey: ["me"], queryFn: () => me() });
-  const ledQ = useQuery({ queryKey: ["my-ledger"], queryFn: () => ledger() });
 
   const [name, setName] = useState("");
-
-  const claimMut = useMutation({
-    mutationFn: () => claim(),
-    onSuccess: (r) => {
-      if (r.ok) toast.success(`+${r.awarded} credits!`);
-      else if (r.reason === "already_claimed") toast.info("Already claimed today.");
-      else toast.error("Daily credits disabled");
-      qc.invalidateQueries({ queryKey: ["me"] });
-      qc.invalidateQueries({ queryKey: ["my-ledger"] });
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
-  });
 
   const updateMut = useMutation({
     mutationFn: () => update({ data: { display_name: name } }),
@@ -53,7 +37,12 @@ function AccountPage() {
   };
 
   const data = meQ.data;
-  const balance = data?.profile?.credits_balance ?? 0;
+  const isVip = data?.isVip ?? false;
+  const isAdmin = data?.isAdmin ?? false;
+  const membershipLabel = isAdmin ? "Admin" : isVip ? "VIP" : "Member";
+  const dailyLimit = data?.dailyLimit; // null = unlimited
+  const usedToday = data?.downloadsToday ?? 0;
+  const remaining = dailyLimit == null ? "∞" : Math.max(0, dailyLimit - usedToday);
 
   return (
     <div className="min-h-screen">
@@ -67,44 +56,61 @@ function AccountPage() {
         </div>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-3">
-          <Card icon={Coins} label="Credits balance" value={balance.toLocaleString()}
-            footer={<button onClick={() => claimMut.mutate()} disabled={claimMut.isPending}
-              className="text-xs text-primary hover:underline disabled:opacity-50">
-              <Gift size={12} className="mr-1 inline" /> Claim daily credits
-            </button>} />
-          <Card icon={Crown} label="Membership" value={data?.isVip ? "VIP" : "Member"}
-            footer={data?.isVip ? (
-              <span className="text-xs text-muted-foreground">{data.vipExpiresAt ? `Expires ${new Date(data.vipExpiresAt).toLocaleDateString()}` : "Lifetime"}</span>
-            ) : (
-              <Link to="/membership" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">Upgrade to VIP <ArrowRight size={10} /></Link>
-            )} />
-          <Card icon={Calendar} label="Downloads today" value={String(data?.downloadsToday ?? 0)}
-            footer={<Link to="/resources" className="text-xs text-primary hover:underline">Browse resources →</Link>} />
+          <Card
+            icon={isAdmin ? Shield : Crown}
+            label="Membership"
+            value={membershipLabel}
+            footer={
+              isAdmin ? (
+                <span className="text-xs text-muted-foreground">Full access · unlimited downloads</span>
+              ) : isVip ? (
+                <span className="text-xs text-muted-foreground">
+                  {data?.vipExpiresAt ? `Expires ${new Date(data.vipExpiresAt).toLocaleDateString()}` : "Lifetime membership"}
+                </span>
+              ) : (
+                <Link to="/membership" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                  Upgrade to VIP <ArrowRight size={10} />
+                </Link>
+              )
+            }
+          />
+          <Card
+            icon={Download}
+            label="Downloads today"
+            value={`${usedToday}${dailyLimit == null ? "" : ` / ${dailyLimit}`}`}
+            footer={
+              <span className="text-xs text-muted-foreground">
+                {dailyLimit == null ? "Unlimited daily downloads" : `${remaining} remaining today`}
+              </span>
+            }
+          />
+          <Card
+            icon={Calendar}
+            label="Member since"
+            value={data?.profile?.created_at ? new Date(data.profile.created_at).toLocaleDateString() : "—"}
+            footer={<Link to="/resources" className="text-xs text-primary hover:underline">Browse resources →</Link>}
+          />
         </div>
 
         <section className="glass-strong mt-6 rounded-2xl p-6">
           <div className="flex items-center gap-2">
             <Crown size={18} className="text-amber-400" />
-            <h2 className="font-display text-lg font-semibold">{data?.isVip ? "Your VIP Benefits" : "VIP Benefits"}</h2>
-            {data?.isVip && <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-400">ACTIVE</span>}
+            <h2 className="font-display text-lg font-semibold">{isVip ? "Your VIP Benefits" : "VIP Benefits"}</h2>
+            {isVip && <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-400">ACTIVE</span>}
           </div>
           <ul className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
             {[
               "Access to all VIP-only resources",
-              "Higher (or unlimited) daily download limit",
-              "No credit cost on Paid resources",
+              "Unlimited daily downloads",
               "Priority support & early access",
+              "Support the platform for just ₱99/month",
             ].map((b) => (
               <li key={b} className="flex items-start gap-2 text-muted-foreground">
                 <Gift size={14} className="mt-0.5 text-primary" /> <span>{b}</span>
               </li>
             ))}
           </ul>
-          {data?.isVip ? (
-            <p className="mt-4 text-xs text-muted-foreground">
-              {data.vipExpiresAt ? `Membership active until ${new Date(data.vipExpiresAt).toLocaleDateString()}.` : "Lifetime membership — thanks for your support!"}
-            </p>
-          ) : (
+          {!isVip && !isAdmin && (
             <Link to="/membership" className="btn-glow hover:btn-glow-hover mt-5 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm">
               <Crown size={14} /> Upgrade to VIP
             </Link>
@@ -128,29 +134,6 @@ function AccountPage() {
             className="btn-glow hover:btn-glow-hover mt-4 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm disabled:opacity-60">
             <Save size={14} /> {updateMut.isPending ? "Saving…" : "Save changes"}
           </button>
-        </section>
-
-        <section className="glass mt-6 overflow-hidden rounded-2xl">
-          <div className="px-6 py-4">
-            <h2 className="font-display text-lg font-semibold">Credit history</h2>
-          </div>
-          {(ledQ.data?.length ?? 0) === 0 ? (
-            <div className="p-6 text-sm text-muted-foreground">No activity yet.</div>
-          ) : (
-            <ul className="divide-y divide-border/40">
-              {(ledQ.data ?? []).map((r) => (
-                <li key={r.id} className="flex items-center justify-between px-6 py-3 text-sm">
-                  <div>
-                    <div className="font-medium text-foreground capitalize">{r.reason.replace(/_/g, " ")}</div>
-                    <div className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleString()}</div>
-                  </div>
-                  <span className={`font-semibold ${r.delta > 0 ? "text-primary" : "text-destructive"}`}>
-                    {r.delta > 0 ? "+" : ""}{r.delta}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
         </section>
       </main>
       <SiteFooter />
