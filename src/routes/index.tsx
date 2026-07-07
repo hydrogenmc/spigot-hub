@@ -20,7 +20,7 @@ const homeQuery = queryOptions({
       getSettings(),
       listPlans().catch(() => []),
     ]);
-    return { featured, latest, categories, stats, settings: settings as SiteSettings, plans };
+    return { featured: featured.items, latest: latest.items, categories, stats, settings: settings as SiteSettings, plans };
   },
 });
 
