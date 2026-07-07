@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Download, Package } from "lucide-react";
+import { Download, Package, Crown, Sparkles } from "lucide-react";
 
 export interface ResourceCardData {
   slug: string;
@@ -11,10 +11,12 @@ export interface ResourceCardData {
   mc_version?: string;
   author?: string;
   featured?: boolean;
+  access_tier?: string;
   categories?: { name?: string; slug?: string } | null;
 }
 
 export function ResourceCard({ r }: { r: ResourceCardData }) {
+  const isVip = r.access_tier === "vip";
   return (
     <Link
       to="/resources/$slug"
@@ -34,6 +36,15 @@ export function ResourceCard({ r }: { r: ResourceCardData }) {
             Featured
           </span>
         )}
+        <span
+          className={`absolute right-3 top-3 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider backdrop-blur ${
+            isVip
+              ? "bg-amber-500/90 text-black"
+              : "bg-primary/90 text-primary-foreground"
+          }`}
+        >
+          {isVip ? <><Crown size={10} /> VIP</> : <><Sparkles size={10} /> Free</>}
+        </span>
       </div>
       <div className="flex flex-1 flex-col p-4">
         {r.categories?.name && (
