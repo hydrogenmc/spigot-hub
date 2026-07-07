@@ -22,22 +22,25 @@ async function signIfBucketUrl(
 }
 
 export const listResources = createServerFn({ method: "GET" })
-  .inputValidator((d: { category?: string; mcVersion?: string; sort?: "newest" | "popular" | "downloads"; q?: string; featured?: boolean; limit?: number; tags?: string[]; dependencies?: string[]; tier?: "all" | "free" | "vip" } = {}) =>
+  .inputValidator((d: { category?: string; mcVersion?: string; sort?: "newest" | "popular" | "downloads"; q?: string; featured?: boolean; limit?: number; page?: number; tags?: string[]; dependencies?: string[]; tier?: "all" | "free" | "vip" } = {}) =>
     z.object({
       category: z.string().optional(),
       mcVersion: z.string().optional(),
       sort: z.enum(["newest", "popular", "downloads"]).default("newest"),
       q: z.string().optional(),
       featured: z.boolean().optional(),
-      limit: z.number().int().min(1).max(200).default(60),
+      limit: z.number().int().min(1).max(60).default(12),
+      page: z.number().int().min(1).max(500).default(1),
       tags: z.array(z.string().max(40)).max(20).optional(),
       dependencies: z.array(z.string().max(80)).max(20).optional(),
       tier: z.enum(["all", "free", "vip"]).default("all"),
     }).parse(d))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const from = (data.page - 1) * data.limit;
+    const to = from + data.limit - 1;
     let q = supabaseAdmin.from("resources")
-      .select("id, slug, title, description, version, mc_version, author, thumbnail_url, download_count, featured, created_at, tags, dependencies, category_id, access_tier, credit_cost, categories(slug, name, icon)")
+      .select("id, slug, title, description, version, mc_version, author, thumbnail_url, download_count, featured, created_at, tags, dependencies, category_id, access_tier, credit_cost, categories(slug, name, icon)", { count: "exact" })
       .eq("published", true);
     if (data.category) {
       const { data: cat } = await supabaseAdmin.from("categories").select("id").eq("slug", data.category).maybeSingle();
@@ -51,17 +54,22 @@ export const listResources = createServerFn({ method: "GET" })
     if (data.dependencies && data.dependencies.length) q = q.overlaps("dependencies", data.dependencies);
     if (data.sort === "newest") q = q.order("created_at", { ascending: false });
     else q = q.order("download_count", { ascending: false });
-    q = q.limit(data.limit);
-    const { data: rows, error } = await q;
+    q = q.range(from, to);
+    const { data: rows, error, count } = await q;
     if (error) throw new Error(error.message);
-    const out = await Promise.all((rows ?? []).map(async (r) => ({
+    const items = await Promise.all((rows ?? []).map(async (r) => ({
       ...r,
       thumbnail_url: await signIfBucketUrl(supabaseAdmin.storage, r.thumbnail_url),
     })));
-    return out;
+    return { items, total: count ?? 0, page: data.page, pageSize: data.limit };
   });
 
+// Simple in-memory cache for facets (per Worker instance). Facets rarely change.
+let _facetsCache: { data: { tags: string[]; dependencies: string[]; versions: string[] }; expiresAt: number } | null = null;
+const FACETS_TTL_MS = 5 * 60 * 1000;
+
 export const listResourceFacets = createServerFn({ method: "GET" }).handler(async () => {
+  if (_facetsCache && _facetsCache.expiresAt > Date.now()) return _facetsCache.data;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data } = await supabaseAdmin.from("resources").select("tags, dependencies, mc_version").eq("published", true);
   const tags = new Set<string>(); const deps = new Set<string>(); const versions = new Set<string>();
@@ -70,11 +78,13 @@ export const listResourceFacets = createServerFn({ method: "GET" }).handler(asyn
     (r.dependencies ?? []).forEach((d: string) => d && deps.add(d));
     if (r.mc_version) versions.add(r.mc_version);
   });
-  return {
+  const result = {
     tags: Array.from(tags).sort(),
     dependencies: Array.from(deps).sort(),
     versions: Array.from(versions).sort(),
   };
+  _facetsCache = { data: result, expiresAt: Date.now() + FACETS_TTL_MS };
+  return result;
 });
 
 
