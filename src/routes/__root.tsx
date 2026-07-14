@@ -60,8 +60,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "CubynDev — Premium Minecraft Resources, Free & Affordable" },
       { name: "twitter:description", content: "Free Minecraft plugins, skripts, configs and setups. Affordable VIP membership from ₱99/month." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/5d171fe5-55e2-4881-a130-c527ce271a4c" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/5d171fe5-55e2-4881-a130-c527ce271a4c" },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/00113804-5090-404d-8134-74b7d0f78a23/id-preview-9cc9f546--4bb7b82c-0353-4e3e-af3c-e86bbc062607.lovable.app-1783998108862.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/00113804-5090-404d-8134-74b7d0f78a23/id-preview-9cc9f546--4bb7b82c-0353-4e3e-af3c-e86bbc062607.lovable.app-1783998108862.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
