@@ -29,8 +29,8 @@ export const Route = createFileRoute("/")({
     meta: [
       { title: "CubynDev — Premium Minecraft Resources, Free & Affordable" },
       { name: "description", content: "Free Minecraft plugins, skripts, configs and setups. Affordable VIP membership from ₱99/month." },
-      { property: "og:title", content: "CubynDev" },
-      { property: "og:description", content: "Free Minecraft resources plus low-cost VIP membership." },
+      { property: "og:title", content: "CubynDev — Premium Minecraft Resources, Free & Affordable" },
+      { property: "og:description", content: "Free Minecraft plugins, skripts, configs and setups. Affordable VIP membership from ₱99/month." },
     ],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(homeQuery),
