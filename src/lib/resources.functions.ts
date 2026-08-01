@@ -179,10 +179,5 @@ export const getDownloadUrl = createServerFn({ method: "POST" })
     const url = signed ?? r.external_url;
     if (!url) return { ok: false, reason: "no_file" };
 
-    let remaining: number | undefined;
-    if (r.access_tier === "credit") {
-      const { data: prof } = await supabaseAdmin.from("profiles").select("credits_balance").eq("id", uid).maybeSingle();
-      remaining = prof?.credits_balance ?? undefined;
-    }
-    return { ok: true, url, tier: r.access_tier, cost: r.access_tier === "credit" ? r.credit_cost : undefined, remainingBalance: remaining };
+    return { ok: true, url, tier: r.access_tier };
   });
