@@ -8,7 +8,7 @@ export const getMe = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const uid = context.userId;
     const [{ data: profile }, { data: roleRows }, { data: vipRows }, { data: dlCount }, { data: settings }] = await Promise.all([
-      supabaseAdmin.from("profiles").select("id, display_name, credits_balance, last_daily_claim_at, created_at").eq("id", uid).maybeSingle(),
+      supabaseAdmin.from("profiles").select("id, display_name, created_at").eq("id", uid).maybeSingle(),
       supabaseAdmin.from("user_roles").select("role").eq("user_id", uid),
       supabaseAdmin.from("vip_memberships").select("plan_id, starts_at, expires_at").eq("user_id", uid).order("expires_at", { ascending: false, nullsFirst: false }).limit(5),
       supabaseAdmin.rpc("downloads_today", { _uid: uid }),
@@ -33,15 +33,6 @@ export const getMe = createServerFn({ method: "GET" })
       downloadsToday: dlCount ?? 0,
       dailyLimit,
     };
-  });
-
-export const claimDailyCredits = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data, error } = await supabaseAdmin.rpc("claim_daily_credits", { _uid: context.userId });
-    if (error) throw new Error(error.message);
-    return data as { ok: boolean; awarded?: number; reason?: string; next_at?: string };
   });
 
 export const updateProfile = createServerFn({ method: "POST" })
