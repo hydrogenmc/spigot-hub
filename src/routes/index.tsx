@@ -32,6 +32,23 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "CubynDev — Premium Minecraft Resources, Free & Affordable" },
       { property: "og:description", content: "Free Minecraft plugins, skripts, configs and setups. Affordable VIP membership from ₱99/month." },
     ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "CubynDev",
+          url: "https://cubyn.lovable.app",
+          description: "Free Minecraft plugins, skripts, configs and setups. Affordable VIP membership from ₱99/month.",
+          potentialAction: {
+            "@type": "SearchAction",
+            target: "https://cubyn.lovable.app/resources?q={search_term_string}",
+            "query-input": "required name=search_term_string",
+          },
+        }),
+      },
+    ],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(homeQuery),
   component: HomePage,
