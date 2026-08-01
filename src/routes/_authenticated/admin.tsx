@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { LogOut, Plus, Trash2, Save, Upload, Settings as Cog, FolderTree, Package, Users as UsersIcon, Crown, Receipt, Coins, CheckCircle2, XCircle, ShieldCheck, Zap, X, Menu, UserPlus, UserMinus } from "lucide-react";
+import { LogOut, Plus, Trash2, Save, Upload, Settings as Cog, FolderTree, Package, Users as UsersIcon, Crown, Receipt, CheckCircle2, XCircle, ShieldCheck, Zap, X, Menu, UserPlus, UserMinus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/Logo";
 import { RichTextEditor } from "@/components/RichTextEditor";
@@ -13,7 +13,7 @@ import {
   adminSaveCategory, adminDeleteCategory, adminSaveSettings, adminUploadUrl, adminPromoteSelf,
 } from "@/lib/admin.functions";
 import {
-  adminListUsers, adminGrantRole, adminAdjustCredits,
+  adminListUsers, adminGrantRole,
   adminListPlans, adminSavePlan, adminDeletePlan,
   adminListReceipts, adminApproveReceipt, adminRejectReceipt,
   adminListMemberships, adminBulkUpdateTier, adminCsvUpdateTiers,
@@ -218,7 +218,7 @@ function ResourcesTab() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Bulk update failed"),
   });
   const csvMut = useMutation({
-    mutationFn: (rows: Array<{ key: string; access_tier: string; credit_cost?: number }>) => csvImport({ data: { rows } }),
+    mutationFn: (rows: Array<{ key: string; access_tier: string }>) => csvImport({ data: { rows } }),
     onSuccess: (r) => {
       toast.success(`CSV: updated ${r.updated}, skipped ${r.skipped.length}`);
       if (r.skipped.length) console.warn("CSV skipped rows:", r.skipped);
@@ -245,14 +245,12 @@ function ResourcesTab() {
       const header = parseLine(lines[0]).map((h) => h.toLowerCase());
       const keyIdx = header.findIndex((h) => h === "slug" || h === "id" || h === "key");
       const tierIdx = header.indexOf("access_tier");
-      const costIdx = header.indexOf("credit_cost");
       if (keyIdx < 0 || tierIdx < 0) throw new Error('CSV must have "slug" (or "id") and "access_tier" columns');
       const rows = lines.slice(1).map((l) => {
         const cols = parseLine(l);
         return {
           key: cols[keyIdx] ?? "",
           access_tier: (cols[tierIdx] ?? "").toLowerCase(),
-          credit_cost: costIdx >= 0 ? Number(cols[costIdx] || 0) : 0,
         };
       }).filter((r) => r.key);
       if (rows.length === 0) throw new Error("No data rows");
@@ -267,7 +265,7 @@ function ResourcesTab() {
     slug: "", title: "", description: "", long_description: "", version: "1.0.0", mc_version: "1.20+",
     category_id: categories.data?.[0]?.id ?? null, author: "CubynDev Team", thumbnail_url: "", file_url: "",
     external_url: "", changelog: "", tags: [], dependencies: [], featured: false, published: true,
-    access_tier: "free", credit_cost: 0,
+    access_tier: "free",
   });
   const [quickUpdate, setQuickUpdate] = useState<{ id: string; title: string; version: string } | null>(null);
 
@@ -422,7 +420,7 @@ function ResourceEditor({ data, setData, categories, onSave, onCancel, busy }: {
       toast.error(Object.values(errors)[0]);
       return;
     }
-    const payload = { ...data, access_tier: tier, credit_cost: 0 };
+    const payload = { ...data, access_tier: tier };
     onSave(payload);
   };
 
@@ -485,7 +483,7 @@ function ResourceEditor({ data, setData, categories, onSave, onCancel, busy }: {
         </Field>
         <Field label="Changelog" className="sm:col-span-2"><RichTextEditor value={String(data.changelog ?? "")} onChange={(v) => update("changelog", v)} rows={4} placeholder="What changed in this version?" /></Field>
         <Field label="Access tier" className="sm:col-span-2">
-          <select value={tier} onChange={(e) => { update("access_tier", e.target.value); update("credit_cost", 0); }} className={inp}>
+          <select value={tier} onChange={(e) => update("access_tier", e.target.value)} className={inp}>
             <option value="free">Free — anyone signed in</option>
             <option value="vip">VIP only</option>
           </select>
@@ -616,7 +614,6 @@ function SettingsTab() {
   const footer = (data.footer as Record<string, string> | undefined) ?? {};
   const payment = (data.payment as Record<string, string | number> | undefined) ?? {};
   const limits = (data.limits as Record<string, number | null> | undefined) ?? {};
-  const credits = (data.credits as Record<string, number> | undefined) ?? {};
 
   const set = (section: string, field: string, value: string | number | null) => {
     const next = { ...data, [section]: { ...((data[section] as Record<string, unknown>) ?? {}), [field]: value } };
@@ -667,11 +664,9 @@ function SettingsTab() {
         <Field label="Instructions to buyer" className="sm:col-span-2"><textarea rows={3} value={String(payment.instructions ?? "")} onChange={(e) => set("payment", "instructions", e.target.value)} className={inp} placeholder="e.g. Include your username in the message…" /></Field>
       </Section>
 
-      <Section title="Download limits & Credits">
-        <Field label="Member daily downloads"><input type="number" min="0" value={Number(limits.member_daily ?? 10)} onChange={(e) => set("limits", "member_daily", Number(e.target.value))} className={inp} /></Field>
+      <Section title="Download limits">
+        <Field label="Member daily downloads"><input type="number" min="0" value={Number(limits.member_daily ?? 5)} onChange={(e) => set("limits", "member_daily", Number(e.target.value))} className={inp} /></Field>
         <Field label="VIP daily downloads (blank = unlimited)"><input type="number" min="0" value={limits.vip_daily ?? ""} onChange={(e) => set("limits", "vip_daily", e.target.value === "" ? null : Number(e.target.value))} className={inp} /></Field>
-        <Field label="Signup bonus credits"><input type="number" min="0" value={Number(credits.signup_bonus ?? 20)} onChange={(e) => set("credits", "signup_bonus", Number(e.target.value))} className={inp} /></Field>
-        <Field label="Daily login credits"><input type="number" min="0" value={Number(credits.daily_login ?? 5)} onChange={(e) => set("credits", "daily_login", Number(e.target.value))} className={inp} /></Field>
       </Section>
 
       <div className="sticky bottom-4 flex justify-end">
@@ -703,7 +698,6 @@ function UsersTab() {
   const qc = useQueryClient();
   const list = useServerFn(adminListUsers);
   const grant = useServerFn(adminGrantRole);
-  const adj = useServerFn(adminAdjustCredits);
   const invite = useServerFn(adminInviteUser);
   const remove = useServerFn(adminRemoveUser);
   const [q, setQ] = useState("");
@@ -716,11 +710,6 @@ function UsersTab() {
   const grantMut = useMutation({
     mutationFn: (v: { user_id: string; role: OrgRole; grant: boolean }) => grant({ data: v }),
     onSuccess: () => { toast.success("Role updated"); qc.invalidateQueries({ queryKey: ["admin-users"] }); },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
-  });
-  const adjMut = useMutation({
-    mutationFn: (v: { user_id: string; delta: number; reason: string }) => adj({ data: v }),
-    onSuccess: () => { toast.success("Credits adjusted"); qc.invalidateQueries({ queryKey: ["admin-users"] }); },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
   const inviteMut = useMutation({
@@ -789,7 +778,7 @@ function UsersTab() {
       <div className="glass mt-4 overflow-x-auto rounded-2xl">
         <table className="w-full text-sm">
           <thead className="bg-secondary/40 text-xs uppercase text-muted-foreground">
-            <tr><th className="px-4 py-3 text-left">User</th><th className="px-4 py-3 text-left">Roles</th><th className="px-4 py-3 text-left">Credits</th><th className="px-4 py-3 text-left">VIP exp</th><th className="px-4 py-3"></th></tr>
+            <tr><th className="px-4 py-3 text-left">User</th><th className="px-4 py-3 text-left">Roles</th><th className="px-4 py-3 text-left">VIP exp</th><th className="px-4 py-3"></th></tr>
           </thead>
           <tbody>
             {(users.data ?? []).map((u) => (
@@ -810,16 +799,8 @@ function UsersTab() {
                     );
                   })}
                 </td>
-                <td className="px-4 py-3 text-foreground">{u.credits}</td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{u.vip_expires_at ? new Date(u.vip_expires_at).toLocaleDateString() : (u.roles.includes("vip") ? "—" : "")}</td>
                 <td className="px-4 py-3 text-right">
-                  <button onClick={() => {
-                    const v = prompt(`Adjust credits for ${u.email} (+/- amount):`, "10");
-                    if (!v) return;
-                    const delta = Number(v); if (!Number.isFinite(delta)) return toast.error("Invalid number");
-                    const reason = prompt("Reason:", "admin_adjust") ?? "admin_adjust";
-                    adjMut.mutate({ user_id: u.id, delta, reason });
-                  }} className="mr-3 text-xs text-primary hover:underline">Adjust credits</button>
                   <button onClick={() => {
                     if (!confirm(`Permanently remove ${u.email}? This cannot be undone.`)) return;
                     removeMut.mutate(u.id);
@@ -1109,12 +1090,11 @@ function AuditTab() {
 
   return (
     <div>
-      <div className="grid gap-3 sm:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-4">
         <Stat label="Total" value={totals?.total ?? 0} />
         <Stat label="Allowed" value={totals?.allowed ?? 0} cls="text-emerald-400" />
         <Stat label="Denied" value={totals?.denied ?? 0} cls="text-destructive" />
         <Stat label="Admin bypass" value={totals?.admin_bypass ?? 0} cls="text-primary" />
-        <Stat label="Credits spent" value={totals?.credits_spent ?? 0} cls="text-amber-400" />
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
