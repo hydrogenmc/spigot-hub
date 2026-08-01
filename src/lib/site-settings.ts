@@ -12,11 +12,6 @@ export type LimitSettings = {
   vip_daily?: number | null;
 };
 
-export type CreditSettings = {
-  signup_bonus?: number;
-  daily_login?: number;
-};
-
 export type SiteSettings = {
   hero?: { title?: string; subtitle?: string; description?: string; primaryCta?: string; secondaryCta?: string };
   about?: { title?: string; body?: string };
@@ -24,10 +19,9 @@ export type SiteSettings = {
   footer?: { tagline?: string };
   payment?: PaymentSettings;
   limits?: LimitSettings;
-  credits?: CreditSettings;
 };
 
-export const defaultSettings: Required<Omit<SiteSettings, "payment" | "limits" | "credits">> = {
+export const defaultSettings: Required<Omit<SiteSettings, "payment" | "limits">> = {
   hero: {
     title: "CubynDev",
     subtitle: "Premium Minecraft resources, priced for everyone",
