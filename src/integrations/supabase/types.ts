@@ -86,33 +86,6 @@ export type Database = {
         }
         Relationships: []
       }
-      credits_ledger: {
-        Row: {
-          created_at: string
-          delta: number
-          id: string
-          reason: string
-          ref_id: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          delta: number
-          id?: string
-          reason: string
-          ref_id?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          delta?: number
-          id?: string
-          reason?: string
-          ref_id?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
       download_logs: {
         Row: {
           created_at: string
@@ -318,24 +291,18 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
-          credits_balance: number
           display_name: string | null
           id: string
-          last_daily_claim_at: string | null
         }
         Insert: {
           created_at?: string
-          credits_balance?: number
           display_name?: string | null
           id: string
-          last_daily_claim_at?: string | null
         }
         Update: {
           created_at?: string
-          credits_balance?: number
           display_name?: string | null
           id?: string
-          last_daily_claim_at?: string | null
         }
         Relationships: []
       }
@@ -413,7 +380,6 @@ export type Database = {
           category_id: string | null
           changelog: string | null
           created_at: string
-          credit_cost: number
           dependencies: string[]
           description: string
           download_count: number
@@ -439,7 +405,6 @@ export type Database = {
           category_id?: string | null
           changelog?: string | null
           created_at?: string
-          credit_cost?: number
           dependencies?: string[]
           description?: string
           download_count?: number
@@ -465,7 +430,6 @@ export type Database = {
           category_id?: string | null
           changelog?: string | null
           created_at?: string
-          credit_cost?: number
           dependencies?: string[]
           description?: string
           download_count?: number
@@ -587,10 +551,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      admin_adjust_credits: {
-        Args: { _delta: number; _reason: string; _uid: string }
-        Returns: undefined
-      }
       admin_approve_receipt: {
         Args: { _note: string; _receipt_id: string }
         Returns: Json
@@ -603,7 +563,6 @@ export type Database = {
         Args: { _resource_id: string; _uid: string }
         Returns: Json
       }
-      claim_daily_credits: { Args: { _uid: string }; Returns: Json }
       consume_download: {
         Args: { _resource_id: string; _uid: string }
         Returns: Json
