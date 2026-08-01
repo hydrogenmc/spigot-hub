@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Menu, X, User, LogOut, Coins, Shield, CreditCard, ChevronDown } from "lucide-react";
+import { Menu, X, User, LogOut, Shield, CreditCard, ChevronDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Logo } from "./Logo";
@@ -12,7 +12,6 @@ const nav = [
   { to: "/resources", label: "Resources" },
   { to: "/categories", label: "Categories" },
   { to: "/membership", label: "Membership" },
-  { to: "/leaderboard", label: "Leaderboard" },
 ] as const;
 
 export function SiteHeader() {
@@ -81,7 +80,6 @@ export function SiteHeader() {
                 className="glass inline-flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 text-sm hover:bg-secondary/40">
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 text-xs font-semibold text-primary">{initials}</span>
                 <span className="hidden xl:inline text-foreground">{meQuery.data?.profile?.display_name ?? meQuery.data?.email}</span>
-                <span className="inline-flex items-center gap-1 text-primary"><Coins size={12} />{meQuery.data?.profile?.credits_balance ?? 0}</span>
                 <ChevronDown size={14} className="text-muted-foreground" />
               </button>
               {menuOpen && (
@@ -100,7 +98,6 @@ export function SiteHeader() {
                     <div className="my-1 h-px bg-border/60" />
                     <MenuLink to="/account" icon={User} label="My Account" onClick={() => setMenuOpen(false)} />
                     <MenuLink to="/membership" icon={CreditCard} label="Membership" onClick={() => setMenuOpen(false)} />
-                    <MenuLink to="/leaderboard" icon={Coins} label="Credits & Leaderboard" onClick={() => setMenuOpen(false)} />
                     {meQuery.data?.isAdmin && <MenuLink to="/admin" icon={Shield} label="Admin Dashboard" onClick={() => setMenuOpen(false)} />}
                     <div className="my-1 h-px bg-border/60" />
                     <button onClick={signOut} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-muted-foreground hover:bg-secondary/60 hover:text-foreground">
@@ -137,7 +134,7 @@ export function SiteHeader() {
               </>
             ) : (
               <>
-                <Link to="/account" onClick={() => setOpen(false)} className="rounded-md px-3 py-3 text-sm text-muted-foreground hover:text-foreground">My Account ({meQuery.data?.profile?.credits_balance ?? 0} credits)</Link>
+                <Link to="/account" onClick={() => setOpen(false)} className="rounded-md px-3 py-3 text-sm text-muted-foreground hover:text-foreground">My Account</Link>
                 {meQuery.data?.isAdmin && <Link to="/admin" onClick={() => setOpen(false)} className="rounded-md px-3 py-3 text-sm text-muted-foreground hover:text-foreground">Admin</Link>}
                 <button onClick={signOut} className="rounded-md px-3 py-3 text-left text-sm text-muted-foreground hover:text-foreground">Sign out</button>
               </>

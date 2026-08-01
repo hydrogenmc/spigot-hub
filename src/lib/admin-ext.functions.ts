@@ -16,7 +16,7 @@ export const adminListUsers = createServerFn({ method: "POST" })
     await assertAdmin(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: users } = await supabaseAdmin.auth.admin.listUsers({ perPage: 200 });
-    const { data: profs } = await supabaseAdmin.from("profiles").select("id, display_name, credits_balance");
+    const { data: profs } = await supabaseAdmin.from("profiles").select("id, display_name");
     const { data: roles } = await supabaseAdmin.from("user_roles").select("user_id, role");
     const { data: vips } = await supabaseAdmin.from("vip_memberships").select("user_id, expires_at");
     const profMap = new Map((profs ?? []).map((p) => [p.id, p]));
@@ -46,7 +46,6 @@ export const adminListUsers = createServerFn({ method: "POST" })
         email_confirmed_at: u.email_confirmed_at,
         last_sign_in_at: u.last_sign_in_at,
         display_name: profMap.get(u.id)?.display_name ?? null,
-        credits: profMap.get(u.id)?.credits_balance ?? 0,
         roles: roleMap.get(u.id) ?? [],
         vip_expires_at: vipMap.get(u.id) ?? null,
       }))
@@ -102,19 +101,6 @@ export const adminRemoveUser = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-
-export const adminAdjustCredits = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: { user_id: string; delta: number; reason: string }) =>
-    z.object({ user_id: z.string().uuid(), delta: z.number().int().min(-100000).max(100000), reason: z.string().min(1).max(200) }).parse(d),
-  )
-  .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.rpc("admin_adjust_credits", { _uid: data.user_id, _delta: data.delta, _reason: data.reason });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
 
 // ------------------- Plans -------------------
 export const adminListPlans = createServerFn({ method: "GET" })
@@ -235,36 +221,31 @@ export const adminRejectReceipt = createServerFn({ method: "POST" })
 // ------------------- Bulk resource tier update -------------------
 export const adminBulkUpdateTier = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { ids: string[]; access_tier: "free" | "credit" | "vip"; credit_cost?: number }) =>
+  .inputValidator((d: { ids: string[]; access_tier: "free" | "vip" }) =>
     z.object({
       ids: z.array(z.string().uuid()).min(1).max(500),
-      access_tier: z.enum(["free", "credit", "vip"]),
-      credit_cost: z.number().int().min(0).max(10000).optional(),
+      access_tier: z.enum(["free", "vip"]),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
     await assertAnyRole(context.userId, ["admin", "editor"]);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const patch = {
-      access_tier: data.access_tier,
-      credit_cost: data.access_tier === "credit" ? Math.max(1, data.credit_cost ?? 1) : 0,
-    };
+    const patch = { access_tier: data.access_tier };
     const { error } = await supabaseAdmin.from("resources").update(patch).in("id", data.ids);
     if (error) throw new Error(error.message);
     return { ok: true, count: data.ids.length };
   });
 
-// ------------------- CSV bulk import (tier + credit cost by slug/id) -------------------
+// ------------------- CSV bulk import (tier by slug/id) -------------------
 const csvRow = z.object({
   key: z.string().min(1).max(200),
-  access_tier: z.enum(["free", "credit", "vip"]),
-  credit_cost: z.number().int().min(0).max(10000).default(0),
+  access_tier: z.enum(["free", "vip"]),
 });
 export const adminCsvUpdateTiers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { rows: Array<{ key: string; access_tier: string; credit_cost?: number }> }) =>
-    z.object({ rows: z.array(csvRow.transform((r) => r)).min(1).max(1000) }).parse({
-      rows: d.rows.map((r) => ({ key: r.key, access_tier: r.access_tier, credit_cost: r.credit_cost ?? 0 })),
+  .inputValidator((d: { rows: Array<{ key: string; access_tier: string }> }) =>
+    z.object({ rows: z.array(csvRow).min(1).max(1000) }).parse({
+      rows: d.rows.map((r) => ({ key: r.key, access_tier: r.access_tier })),
     }),
   )
   .handler(async ({ data, context }) => {
@@ -278,13 +259,7 @@ export const adminCsvUpdateTiers = createServerFn({ method: "POST" })
     for (const row of data.rows) {
       const id = byId.has(row.key) ? row.key : bySlug.get(row.key);
       if (!id) { results.skipped.push({ key: row.key, reason: "not found" }); continue; }
-      if (row.access_tier === "credit" && row.credit_cost <= 0) {
-        results.skipped.push({ key: row.key, reason: "credit tier needs credit_cost > 0" }); continue;
-      }
-      const patch = {
-        access_tier: row.access_tier,
-        credit_cost: row.access_tier === "credit" ? row.credit_cost : 0,
-      };
+      const patch = { access_tier: row.access_tier };
       const { error } = await supabaseAdmin.from("resources").update(patch).eq("id", id);
       if (error) results.skipped.push({ key: row.key, reason: error.message });
       else results.updated++;

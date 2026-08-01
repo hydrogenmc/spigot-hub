@@ -56,12 +56,11 @@ export const adminListAuditLogs = createServerFn({ method: "POST" })
       resource_slug: r.resource_id ? resMap.get(r.resource_id)?.slug ?? null : null,
     }));
     // Aggregate summary
-    const totals = { total: out.length, allowed: 0, denied: 0, admin_bypass: 0, vip_bypass: 0, credits_spent: 0 };
+    const totals = { total: out.length, allowed: 0, denied: 0, admin_bypass: 0, vip_bypass: 0 };
     out.forEach((r) => {
       if (r.allowed) totals.allowed++; else totals.denied++;
       if (r.bypass === "admin") totals.admin_bypass++;
       if (r.bypass === "vip") totals.vip_bypass++;
-      if (r.allowed && (r.cost ?? 0) > 0) totals.credits_spent += r.cost;
     });
     return { logs: out, totals };
   });

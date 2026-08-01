@@ -70,7 +70,7 @@ function MembershipPage() {
                 <li className="flex items-center gap-2"><Check size={14} className="text-primary" /> All VIP resources</li>
                 <li className="flex items-center gap-2"><Check size={14} className="text-primary" /> Unlimited daily downloads</li>
                 <li className="flex items-center gap-2"><Check size={14} className="text-primary" /> Priority support</li>
-                <li className="flex items-center gap-2"><Check size={14} className="text-primary" /> VIP badge on leaderboard</li>
+                <li className="flex items-center gap-2"><Check size={14} className="text-primary" /> VIP badge on your profile</li>
               </ul>
             </div>
           ))}

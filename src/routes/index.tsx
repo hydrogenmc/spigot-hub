@@ -32,6 +32,23 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "CubynDev — Premium Minecraft Resources, Free & Affordable" },
       { property: "og:description", content: "Free Minecraft plugins, skripts, configs and setups. Affordable VIP membership from ₱99/month." },
     ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "CubynDev",
+          url: "https://cubyn.lovable.app",
+          description: "Free Minecraft plugins, skripts, configs and setups. Affordable VIP membership from ₱99/month.",
+          potentialAction: {
+            "@type": "SearchAction",
+            target: "https://cubyn.lovable.app/resources?q={search_term_string}",
+            "query-input": "required name=search_term_string",
+          },
+        }),
+      },
+    ],
   }),
   loader: ({ context }) => context.queryClient.ensureQueryData(homeQuery),
   component: HomePage,
@@ -118,7 +135,7 @@ function HomePage() {
             <h3 className="mt-4 font-display text-xl font-semibold text-foreground">Free</h3>
             <p className="mt-1 text-3xl font-bold text-foreground">₱0<span className="text-sm font-normal text-muted-foreground"> / forever</span></p>
             <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-              {["Full access to the free library", "Instant downloads", "Community support", "Daily login credits"].map((t) => (
+              {["Full access to the free library", "Instant downloads", "Community support", "New releases weekly"].map((t) => (
                 <li key={t} className="flex items-start gap-2"><Check size={14} className="mt-0.5 text-primary" /> {t}</li>
               ))}
             </ul>

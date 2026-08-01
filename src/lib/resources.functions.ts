@@ -40,7 +40,7 @@ export const listResources = createServerFn({ method: "GET" })
     const from = (data.page - 1) * data.limit;
     const to = from + data.limit - 1;
     let q = supabaseAdmin.from("resources")
-      .select("id, slug, title, description, version, mc_version, author, thumbnail_url, download_count, featured, created_at, tags, dependencies, category_id, access_tier, credit_cost, categories(slug, name, icon)", { count: "exact" })
+      .select("id, slug, title, description, version, mc_version, author, thumbnail_url, download_count, featured, created_at, tags, dependencies, category_id, access_tier, categories(slug, name, icon)", { count: "exact" })
       .eq("published", true);
     if (data.category) {
       const { data: cat } = await supabaseAdmin.from("categories").select("id").eq("slug", data.category).maybeSingle();
@@ -117,7 +117,7 @@ export const getResource = createServerFn({ method: "GET" })
     safe.resource_screenshots = screenshots;
     safe.uploader = uploader;
     safe.has_file = !!(r as { file_url?: string }).file_url || !!(r as { external_url?: string }).external_url;
-    return JSON.parse(JSON.stringify(safe)) as { id: string; slug: string; title: string; description: string; long_description?: string; changelog?: string; version: string; mc_version: string; author: string; tags: string[]; dependencies: string[]; thumbnail_url: string | null; access_tier: string; credit_cost: number; download_count: number; created_at: string; categories?: { name?: string; slug?: string; icon?: string } | null; resource_screenshots: Array<{ url: string; sort_order: number }>; has_file: boolean; uploader: { display_name: string | null } | null };
+    return JSON.parse(JSON.stringify(safe)) as { id: string; slug: string; title: string; description: string; long_description?: string; changelog?: string; version: string; mc_version: string; author: string; tags: string[]; dependencies: string[]; thumbnail_url: string | null; access_tier: string; download_count: number; created_at: string; categories?: { name?: string; slug?: string; icon?: string } | null; resource_screenshots: Array<{ url: string; sort_order: number }>; has_file: boolean; uploader: { display_name: string | null } | null };
   });
 
 export const listCategories = createServerFn({ method: "GET" }).handler(async () => {
@@ -160,7 +160,7 @@ export const getDownloadUrl = createServerFn({ method: "POST" })
     const uid = context.userId;
     const { data: r, error: rErr } = await supabaseAdmin
       .from("resources")
-      .select("id, file_url, external_url, access_tier, credit_cost")
+      .select("id, file_url, external_url, access_tier")
       .eq("id", data.id)
       .eq("published", true)
       .maybeSingle();
@@ -179,10 +179,5 @@ export const getDownloadUrl = createServerFn({ method: "POST" })
     const url = signed ?? r.external_url;
     if (!url) return { ok: false, reason: "no_file" };
 
-    let remaining: number | undefined;
-    if (r.access_tier === "credit") {
-      const { data: prof } = await supabaseAdmin.from("profiles").select("credits_balance").eq("id", uid).maybeSingle();
-      remaining = prof?.credits_balance ?? undefined;
-    }
-    return { ok: true, url, tier: r.access_tier, cost: r.access_tier === "credit" ? r.credit_cost : undefined, remainingBalance: remaining };
+    return { ok: true, url, tier: r.access_tier };
   });

@@ -39,19 +39,8 @@ const resourceSchema = z.object({
   dependencies: z.array(z.string().max(200)).max(30).default([]),
   featured: z.boolean().default(false),
   published: z.boolean().default(true),
-  access_tier: z.enum(["free", "credit", "vip"]).default("free"),
-  credit_cost: z.coerce.number({ invalid_type_error: "Credit cost must be a number" }).int({ message: "Credit cost must be a whole number" }).min(0).max(10000).default(0),
-})
-  .superRefine((v, ctx) => {
-    if (v.access_tier === "credit" && (!Number.isFinite(v.credit_cost) || v.credit_cost < 1)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["credit_cost"], message: "Paid (credit) tier requires credit_cost >= 1" });
-    }
-  })
-  .transform((v) => ({
-    ...v,
-    // Safety net: enforce min 1 for credit tier, zero for others.
-    credit_cost: v.access_tier === "credit" ? Math.max(1, Math.floor(v.credit_cost)) : 0,
-  }));
+  access_tier: z.enum(["free", "vip"]).default("free"),
+});
 
 export const adminCheck = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

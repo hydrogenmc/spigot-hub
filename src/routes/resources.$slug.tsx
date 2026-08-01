@@ -2,7 +2,7 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useSuspenseQuery, queryOptions, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState, useEffect } from "react";
-import { Download, ArrowLeft, Calendar, User, Tag, Box, Check, Loader2, Lock, Coins, Crown, Package, Star, MessageSquare, Trash2 } from "lucide-react";
+import { Download, ArrowLeft, Calendar, User, Tag, Box, Check, Loader2, Lock, Crown, Package, Star, MessageSquare, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -18,7 +18,7 @@ const resourceQuery = (slug: string) =>
     queryFn: async () => {
       const [r, s] = await Promise.all([getResource({ data: { slug } }), getSettings()]);
       if (!r) throw notFound();
-      return { resource: r as Record<string, unknown> & { id: string; slug: string; title: string; description: string; long_description?: string; changelog?: string; version: string; mc_version: string; author: string; tags: string[]; dependencies?: string[]; thumbnail_url: string | null; access_tier: string; credit_cost: number; download_count: number; created_at: string; categories?: { name?: string } | null; resource_screenshots: Array<{ url: string; sort_order: number }>; has_file: boolean; uploader?: { display_name: string | null } | null }, settings: s as SiteSettings };
+      return { resource: r as Record<string, unknown> & { id: string; slug: string; title: string; description: string; long_description?: string; changelog?: string; version: string; mc_version: string; author: string; tags: string[]; dependencies?: string[]; thumbnail_url: string | null; access_tier: string; download_count: number; created_at: string; categories?: { name?: string } | null; resource_screenshots: Array<{ url: string; sort_order: number }>; has_file: boolean; uploader?: { display_name: string | null } | null }, settings: s as SiteSettings };
     },
   });
 
@@ -31,7 +31,22 @@ export const Route = createFileRoute("/resources/$slug")({
         { name: "description", content: r?.description ?? "Minecraft resource" },
         { property: "og:title", content: r?.title ?? "Resource" },
         { property: "og:description", content: r?.description ?? "" },
-        ...(r?.thumbnail_url ? [{ property: "og:image", content: r.thumbnail_url }] : []),
+        ...(r?.thumbnail_url ? [{ property: "og:image", content: r.thumbnail_url }, { name: "twitter:image", content: r.thumbnail_url }] : []),
+      ],
+      scripts: [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            name: r?.title ?? "Resource",
+            description: r?.description ?? "",
+            applicationCategory: "GameApplication",
+            operatingSystem: "Minecraft Server",
+            ...(r?.thumbnail_url ? { image: r.thumbnail_url } : {}),
+            publisher: { "@type": "Organization", name: "CubynDev" },
+          }),
+        },
       ],
     };
   },
@@ -50,7 +65,6 @@ export const Route = createFileRoute("/resources/$slug")({
 const reasonLabel: Record<string, string> = {
   not_found: "Resource not available",
   vip_required: "VIP membership required",
-  insufficient_credits: "Not enough Credits",
   limit_reached: "Daily download limit reached",
   no_file: "No file attached yet",
   denied: "Download not permitted",
@@ -79,7 +93,6 @@ function ResourceDetail() {
 
   const tierPill =
     r.access_tier === "vip" ? { icon: Crown, label: "VIP only", cls: "bg-amber-500/15 text-amber-400" } :
-    r.access_tier === "credit" ? { icon: Coins, label: `${r.credit_cost} Credits`, cls: "bg-primary/15 text-primary" } :
     { icon: Download, label: "Free", cls: "bg-emerald-500/15 text-emerald-400" };
 
   const handleDownload = async () => {
@@ -106,7 +119,7 @@ function ResourceDetail() {
       } catch {
         window.open(res.url, "_blank", "noopener");
       }
-      toast.success(res.tier === "credit" ? `Downloaded — ${res.cost} Credits deducted` : "Download started");
+      toast.success("Download started");
       setDlState("done");
       setTimeout(() => setDlState("idle"), 1800);
     } catch (e) {
@@ -130,7 +143,7 @@ function ResourceDetail() {
         <div className="glass mt-6 overflow-hidden rounded-3xl">
           <div className="relative aspect-[21/9] bg-gradient-to-br from-secondary to-card">
             {r.thumbnail_url ? (
-              <img src={r.thumbnail_url} alt={r.title} className="h-full w-full object-cover" />
+              <img src={r.thumbnail_url} alt={`${r.title} thumbnail`} className="h-full w-full object-cover" loading="lazy" decoding="async" />
             ) : (
               <div className="flex h-full items-center justify-center text-primary/30"><Box size={80} strokeWidth={1} /></div>
             )}
