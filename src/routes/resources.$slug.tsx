@@ -31,7 +31,22 @@ export const Route = createFileRoute("/resources/$slug")({
         { name: "description", content: r?.description ?? "Minecraft resource" },
         { property: "og:title", content: r?.title ?? "Resource" },
         { property: "og:description", content: r?.description ?? "" },
-        ...(r?.thumbnail_url ? [{ property: "og:image", content: r.thumbnail_url }] : []),
+        ...(r?.thumbnail_url ? [{ property: "og:image", content: r.thumbnail_url }, { name: "twitter:image", content: r.thumbnail_url }] : []),
+      ],
+      scripts: [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            name: r?.title ?? "Resource",
+            description: r?.description ?? "",
+            applicationCategory: "GameApplication",
+            operatingSystem: "Minecraft Server",
+            ...(r?.thumbnail_url ? { image: r.thumbnail_url } : {}),
+            publisher: { "@type": "Organization", name: "CubynDev" },
+          }),
+        },
       ],
     };
   },
@@ -128,7 +143,7 @@ function ResourceDetail() {
         <div className="glass mt-6 overflow-hidden rounded-3xl">
           <div className="relative aspect-[21/9] bg-gradient-to-br from-secondary to-card">
             {r.thumbnail_url ? (
-              <img src={r.thumbnail_url} alt={r.title} className="h-full w-full object-cover" />
+              <img src={r.thumbnail_url} alt={`${r.title} thumbnail`} className="h-full w-full object-cover" loading="lazy" decoding="async" />
             ) : (
               <div className="flex h-full items-center justify-center text-primary/30"><Box size={80} strokeWidth={1} /></div>
             )}
