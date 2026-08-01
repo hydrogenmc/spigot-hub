@@ -2,7 +2,7 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useSuspenseQuery, queryOptions, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState, useEffect } from "react";
-import { Download, ArrowLeft, Calendar, User, Tag, Box, Check, Loader2, Lock, Coins, Crown, Package, Star, MessageSquare, Trash2 } from "lucide-react";
+import { Download, ArrowLeft, Calendar, User, Tag, Box, Check, Loader2, Lock, Crown, Package, Star, MessageSquare, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -18,7 +18,7 @@ const resourceQuery = (slug: string) =>
     queryFn: async () => {
       const [r, s] = await Promise.all([getResource({ data: { slug } }), getSettings()]);
       if (!r) throw notFound();
-      return { resource: r as Record<string, unknown> & { id: string; slug: string; title: string; description: string; long_description?: string; changelog?: string; version: string; mc_version: string; author: string; tags: string[]; dependencies?: string[]; thumbnail_url: string | null; access_tier: string; credit_cost: number; download_count: number; created_at: string; categories?: { name?: string } | null; resource_screenshots: Array<{ url: string; sort_order: number }>; has_file: boolean; uploader?: { display_name: string | null } | null }, settings: s as SiteSettings };
+      return { resource: r as Record<string, unknown> & { id: string; slug: string; title: string; description: string; long_description?: string; changelog?: string; version: string; mc_version: string; author: string; tags: string[]; dependencies?: string[]; thumbnail_url: string | null; access_tier: string; download_count: number; created_at: string; categories?: { name?: string } | null; resource_screenshots: Array<{ url: string; sort_order: number }>; has_file: boolean; uploader?: { display_name: string | null } | null }, settings: s as SiteSettings };
     },
   });
 
@@ -50,7 +50,6 @@ export const Route = createFileRoute("/resources/$slug")({
 const reasonLabel: Record<string, string> = {
   not_found: "Resource not available",
   vip_required: "VIP membership required",
-  insufficient_credits: "Not enough Credits",
   limit_reached: "Daily download limit reached",
   no_file: "No file attached yet",
   denied: "Download not permitted",
@@ -79,7 +78,6 @@ function ResourceDetail() {
 
   const tierPill =
     r.access_tier === "vip" ? { icon: Crown, label: "VIP only", cls: "bg-amber-500/15 text-amber-400" } :
-    r.access_tier === "credit" ? { icon: Coins, label: `${r.credit_cost} Credits`, cls: "bg-primary/15 text-primary" } :
     { icon: Download, label: "Free", cls: "bg-emerald-500/15 text-emerald-400" };
 
   const handleDownload = async () => {
@@ -106,7 +104,7 @@ function ResourceDetail() {
       } catch {
         window.open(res.url, "_blank", "noopener");
       }
-      toast.success(res.tier === "credit" ? `Downloaded — ${res.cost} Credits deducted` : "Download started");
+      toast.success("Download started");
       setDlState("done");
       setTimeout(() => setDlState("idle"), 1800);
     } catch (e) {

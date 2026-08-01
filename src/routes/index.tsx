@@ -118,7 +118,7 @@ function HomePage() {
             <h3 className="mt-4 font-display text-xl font-semibold text-foreground">Free</h3>
             <p className="mt-1 text-3xl font-bold text-foreground">₱0<span className="text-sm font-normal text-muted-foreground"> / forever</span></p>
             <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-              {["Full access to the free library", "Instant downloads", "Community support", "Daily login credits"].map((t) => (
+              {["Full access to the free library", "Instant downloads", "Community support", "New releases weekly"].map((t) => (
                 <li key={t} className="flex items-start gap-2"><Check size={14} className="mt-0.5 text-primary" /> {t}</li>
               ))}
             </ul>

@@ -133,8 +133,8 @@ function AuthPage() {
               {tab === "forgot" && "Reset your password"}
             </h1>
             <p className="mt-1 text-center text-sm text-muted-foreground">
-              {tab === "signin" && "Sign in to download resources and earn credits"}
-              {tab === "signup" && "Get 20 free credits when you join"}
+              {tab === "signin" && "Sign in to download resources"}
+              {tab === "signup" && "Free account — 5 downloads every day"}
               {tab === "forgot" && "We'll email you a secure reset link"}
             </p>
 
