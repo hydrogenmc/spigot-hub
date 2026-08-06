@@ -330,7 +330,7 @@ function ReviewsSection({ resourceId, signedIn, currentUserId }: { resourceId: s
         </div>
       ) : (
         <p className="mt-4 text-sm text-muted-foreground">
-          <Link to="/auth" className="text-primary hover:underline">Sign in</Link> to leave a review.
+          <Link to="/auth" search={{ tab: "signin" }} className="text-primary hover:underline">Sign in</Link> to leave a review.
         </p>
       )}
 
