@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, queryOptions, useQuery, keepPreviousData } from "@tanstack/react-query";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { Search, X, SlidersHorizontal, Crown, Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, X, SlidersHorizontal, Crown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -165,10 +165,11 @@ function ResourcesPage() {
           <div>
             {list.isLoading ? (
               <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                {Array.from({ length: 6 }).map((_, i) => <div key={i} className="glass h-72 animate-pulse rounded-2xl" />)}
+                {Array.from({ length: 6 }).map((_, i) => <div key={i} className="surface-quiet h-72 animate-pulse rounded-xl" />)}
               </div>
             ) : items.length === 0 ? (
-              <div className="glass rounded-2xl p-12 text-center text-muted-foreground">
+              <div className="surface-quiet rounded-xl p-12 text-center text-sm text-muted-foreground">
+
                 No resources match your filters.{" "}
                 <button onClick={reset} className="text-primary hover:underline">Clear all</button>
                 {" · "}
@@ -214,7 +215,7 @@ function ResourcesPage() {
             <FiltersPanel search={search} setFilter={setFilter} base={base} activeTags={activeTags} activeDeps={activeDeps} toggleFrom={toggleFrom} />
             <div className="sticky bottom-0 mt-4 flex gap-2 border-t border-border/40 bg-background/80 py-3 backdrop-blur">
               <button onClick={reset} className="flex-1 rounded-lg border border-border px-3 py-2 text-sm">Clear</button>
-              <button onClick={() => setDrawerOpen(false)} className="btn-glow flex-1 rounded-lg px-3 py-2 text-sm">Show results</button>
+              <button onClick={() => setDrawerOpen(false)} className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">Show results</button>
             </div>
           </div>
         </div>
