@@ -99,19 +99,21 @@ function ResourcesPage() {
   return (
     <div className="min-h-screen">
       <SiteHeader />
-      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14">
+      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16">
         <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>
-            <h1 className="font-display text-4xl font-bold tracking-tight sm:text-5xl">All <span className="text-gradient">Resources</span></h1>
-            <p className="mt-2 max-w-xl text-muted-foreground">Browse free plugins, skripts, and configs — or unlock the full VIP library from ₱99/month.</p>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Catalog</span>
+            <h1 className="mt-2 font-display text-4xl font-bold tracking-tight sm:text-5xl">All resources</h1>
+            <p className="mt-2 max-w-xl text-sm text-muted-foreground">Browse free plugins, skripts, and configs — or unlock the full VIP library from ₱99/month.</p>
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="rounded-full border border-border/60 px-2.5 py-1"><Sparkles size={11} className="mr-1 inline" /> {total} matching</span>
+            <span className="rounded-full border border-border/60 px-3 py-1">{total} matching</span>
           </div>
         </div>
 
         {/* Search bar */}
-        <div className="glass-strong mt-8 rounded-2xl p-3 sm:p-4">
+        <div className="surface-quiet mt-8 rounded-xl p-3 sm:p-4">
+
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
