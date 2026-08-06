@@ -54,26 +54,27 @@ export function SiteHeader() {
     .split(/\s+/).map((s) => s[0]).slice(0, 2).join("").toUpperCase();
 
   return (
-    <header className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? "glass-strong border-b border-border/50" : "bg-transparent"}`}>
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <Link to="/" className="transition-opacity hover:opacity-90"><Logo /></Link>
+    <header className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? "glass-strong border-b border-border/60" : "border-b border-transparent bg-transparent"}`}>
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
+        <Link to="/" className="shrink-0 transition-opacity hover:opacity-90"><Logo /></Link>
 
-        <nav className="hidden items-center gap-1 lg:flex">
+        <nav className="hidden items-center gap-1 rounded-full border border-border/60 px-1.5 py-1 lg:flex">
           {nav.map((n) => (
             <Link key={n.to} to={n.to}
-              className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-              activeProps={{ className: "text-foreground" }} activeOptions={{ exact: n.to === "/" }}>
+              className="rounded-full px-3.5 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+              activeProps={{ className: "text-foreground bg-secondary/70" }} activeOptions={{ exact: n.to === "/" }}>
               {n.label}
             </Link>
           ))}
         </nav>
 
-        <div className="hidden items-center gap-2 lg:flex">
+        <div className="hidden items-center gap-3 lg:flex">
           {!sessionUser ? (
             <>
-              <Link to="/auth" search={{ tab: "signin" }} className="rounded-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground">Sign in</Link>
-              <Link to="/auth" search={{ tab: "signup" }} className="btn-glow hover:btn-glow-hover inline-flex items-center rounded-lg px-4 py-2 text-sm">Sign up</Link>
+              <Link to="/auth" search={{ tab: "signin" }} className="text-sm text-muted-foreground transition-colors hover:text-foreground">Sign in</Link>
+              <Link to="/auth" search={{ tab: "signup" }} className="inline-flex items-center rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90">Sign up</Link>
             </>
+
           ) : (
             <div className="relative">
               <button onClick={() => setMenuOpen((v) => !v)}
