@@ -104,10 +104,11 @@
 }
 
 @utility glass {
-  background: oklch(0.14 0 0 / 0.6);
-  backdrop-filter: blur(16px) saturate(140%);
-  border: 1px solid oklch(0.82 0.24 145 / 0.14);
+  background: oklch(0.115 0 0 / 0.7);
+  backdrop-filter: blur(14px) saturate(120%);
+  border: 1px solid oklch(1 0 0 / 0.07);
 }
+
 
 @utility glass-strong {
   background: oklch(0.09 0 0 / 0.85);
